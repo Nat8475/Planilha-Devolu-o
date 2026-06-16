@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <base target="_top">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: Arial, sans-serif;
+      font-size: 13px;
+      background: #f4f6f9;
+      padding: 16px;
+    }
+    .titulo {
+      background: #2D5F8A;
+      color: #fff;
+      text-align: center;
+      padding: 12px;
+      border-radius: 6px;
+      font-size: 15px;
+      font-weight: bold;
+      margin-bottom: 14px;
+    }
+    .info {
+      background: #e8f0fb;
+      border-left: 4px solid #2D5F8A;
+      padding: 9px 12px;
+      border-radius: 0 4px 4px 0;
+      font-size: 12px;
+      color: #333;
+      margin-bottom: 12px;
+      line-height: 1.5;
+    }
+    .campo { margin-bottom: 12px; }
+    label {
+      display: block;
+      font-weight: bold;
+      color: #333;
+      margin-bottom: 4px;
+    }
+    textarea {
+      width: 100%;
+      padding: 8px 10px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 13px;
+      resize: vertical;
+    }
+    textarea:focus {
+      outline: none;
+      border-color: #2D5F8A;
+      box-shadow: 0 0 0 2px rgba(45,95,138,0.15);
+    }
+    .botoes { display: flex; gap: 8px; margin-top: 14px; }
+    button {
+      flex: 1;
+      padding: 9px;
+      border: none;
+      border-radius: 4px;
+      font-size: 13px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    #btnExportar { background: #2D5F8A; color: #fff; }
+    #btnExportar:hover { background: #1e4a6e; }
+    #btnCancelar { background: #e0e0e0; color: #333; }
+    #btnCancelar:hover { background: #ccc; }
+    #msg {
+      margin-top: 10px;
+      padding: 9px 11px;
+      border-radius: 4px;
+      font-size: 12px;
+      display: none;
+      line-height: 1.5;
+    }
+    .msg-ok    { background: #e8f5e9; color: #2e7d32; border: 1px solid #a5d6a7; }
+    .msg-erro  { background: #ffebee; color: #c62828; border: 1px solid #ef9a9a; }
+    .link-pdf {
+      display: inline-block;
+      margin-top: 6px;
+      background: #2D5F8A;
+      color: #fff;
+      padding: 5px 10px;
+      border-radius: 4px;
+      text-decoration: none;
+      font-weight: bold;
+      font-size: 12px;
+    }
+    .spinner { display: none; text-align: center; color: #666; margin-top: 8px; font-size: 12px; }
+  </style>
+</head>
+<body>
+
+<div class="titulo">📄 Exportar e Salvar PDF</div>
+
+<div class="info">
+  ℹ️ Digite os números das NFs com status <strong>Pendente</strong> que deseja exportar.<br>
+  Separe por vírgula ou uma por linha. Todas devem ser do <strong>mesmo fornecedor</strong>.<br>
+  Após exportar, o status será automaticamente alterado para <strong>Devolvido</strong>.
+</div>
+
+<div class="campo">
+  <label>Números das NFs</label>
+  <textarea id="nfs" rows="5" placeholder="Ex:&#10;123456&#10;789012&#10;ou: 123456, 789012"></textarea>
+</div>
+
+<div class="botoes">
+  <button id="btnExportar" onclick="exportar()">📄 Exportar PDF</button>
+  <button id="btnCancelar" onclick="google.script.host.close()">✖ Cancelar</button>
+</div>
+
+<div class="spinner" id="spinner">⏳ Gerando PDF, aguarde...</div>
+<div id="msg"></div>
+
+<script>
+  function exportar() {
+    var nfs = document.getElementById('nfs').value.trim();
+    if (!nfs) {
+      mostrar('erro', '❌ Informe ao menos um número de NF.');
+      return;
+    }
+
+    document.getElementById('spinner').style.display = 'block';
+    document.getElementById('btnExportar').disabled = true;
+    document.getElementById('msg').style.display = 'none';
+
+    google.script.run
+      .withSuccessHandler(function(resp) {
+        document.getElementById('spinner').style.display = 'none';
+        document.getElementById('btnExportar').disabled = false;
+        var r = JSON.parse(resp);
+        if (r.sucesso) {
+          var html = r.sucesso.replace(/\n/g, '<br>');
+          if (r.urlPdf) {
+            html += '<br><a class="link-pdf" href="' + r.urlPdf + '" target="_blank">📥 Abrir PDF no Drive</a>';
+          }
+          mostrarHtml('ok', html);
+          document.getElementById('nfs').value = '';
+        } else {
+          mostrar('erro', '❌ ' + r.erro);
+        }
+      })
+      .withFailureHandler(function(e) {
+        document.getElementById('spinner').style.display = 'none';
+        document.getElementById('btnExportar').disabled = false;
+        mostrar('erro', '❌ Erro: ' + e.message);
+      })
+      .executarExportarPDF(nfs);
+  }
+
+  function mostrar(tipo, texto) {
+    var el = document.getElementById('msg');
+    el.className = 'msg-' + tipo;
+    el.textContent = texto;
+    el.style.display = 'block';
+  }
+
+  function mostrarHtml(tipo, html) {
+    var el = document.getElementById('msg');
+    el.className = 'msg-' + tipo;
+    el.innerHTML = html;
+    el.style.display = 'block';
+  }
+
+  document.getElementById('nfs').focus();
+</script>
+</body>
+</html>
