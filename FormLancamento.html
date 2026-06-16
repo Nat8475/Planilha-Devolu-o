@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <base target="_top">
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:Arial,sans-serif;font-size:13px;background:#F0F2F5;padding:14px}
+
+    /* ── Cabeçalho ── */
+    .titulo{background:#2D5F8A;color:#fff;padding:12px 16px;border-radius:6px;
+            font-size:14px;font-weight:bold;margin-bottom:14px;display:flex;
+            align-items:center;gap:8px}
+    .titulo .back{cursor:pointer;background:rgba(255,255,255,.18);border:none;
+                  color:#fff;border-radius:4px;padding:3px 9px;font-size:12px;font-weight:bold}
+    .titulo .back:hover{background:rgba(255,255,255,.3)}
+
+    /* ── Tela seleção ── */
+    .sel-grid{display:flex;flex-direction:column;gap:10px;margin-bottom:14px}
+    .sel-card{display:flex;align-items:center;gap:14px;background:#fff;
+              border:2px solid #D1D5DB;border-radius:8px;padding:14px 16px;
+              cursor:pointer;transition:all .18s}
+    .sel-card:hover{border-color:#2D5F8A;background:#EEF4FB}
+    .sel-card .icone{font-size:26px;line-height:1}
+    .sel-card .txt strong{display:block;font-size:13px;color:#1A3557;margin-bottom:2px}
+    .sel-card .txt span{font-size:11px;color:#6B7280}
+
+    /* ── Telas ── */
+    .screen{display:none}
+    .screen.ativo{display:block}
+
+    /* ── Formulário ── */
+    .campo{margin-bottom:9px}
+    label{display:block;font-weight:bold;color:#333;margin-bottom:3px;font-size:12px}
+    .obrig{color:#c00}
+    input[type=text],input[type=number],select,textarea{
+      width:100%;padding:7px 9px;border:1px solid #ccc;border-radius:4px;font-size:13px}
+    input:focus,select:focus,textarea:focus{
+      outline:none;border-color:#2D5F8A;box-shadow:0 0 0 2px rgba(45,95,138,.15)}
+    .linha2{display:flex;gap:8px}
+    .linha2 .campo{flex:1}
+    .secao{background:#EEF4FB;border-left:3px solid #2D5F8A;padding:8px 10px;
+           border-radius:0 4px 4px 0;margin-bottom:9px;font-size:11px;
+           font-weight:bold;color:#2D5F8A;letter-spacing:.3px}
+
+    /* ── Upload ── */
+    .drop{border:2px dashed #aaa;border-radius:5px;padding:10px;text-align:center;
+          background:#fff;cursor:pointer;transition:border-color .2s;font-size:12px;color:#666}
+    .drop.over{border-color:#2D5F8A;background:#EEF4FB}
+    input[type=file]{display:none}
+
+    /* ── Itens em lote ── */
+    .item-card{background:#fff;border:1px solid #D1D5DB;border-radius:6px;
+               padding:10px 12px;margin-bottom:8px;position:relative}
+    .item-card .item-num{font-size:10px;font-weight:bold;color:#2D5F8A;
+                         margin-bottom:6px;letter-spacing:.3px}
+    .item-card .btn-rem{position:absolute;top:8px;right:8px;background:#ffebee;
+                        border:none;border-radius:3px;color:#c62828;font-size:11px;
+                        padding:2px 7px;cursor:pointer;font-weight:bold}
+    .btn-add{width:100%;padding:8px;background:#EEF4FB;border:2px dashed #2D5F8A;
+             border-radius:5px;color:#2D5F8A;font-size:12px;font-weight:bold;
+             cursor:pointer;margin-bottom:12px;transition:all .15s}
+    .btn-add:hover{background:#dce9f5}
+
+    /* ── Botões ── */
+    .botoes{display:flex;gap:8px;margin-top:12px}
+    button.btn-principal{flex:1;padding:9px;border:none;border-radius:4px;
+                         font-size:13px;font-weight:bold;cursor:pointer;
+                         background:#2D5F8A;color:#fff}
+    button.btn-principal:hover{background:#1e4a6e}
+    button.btn-principal:disabled{opacity:.5;cursor:not-allowed}
+    button.btn-cancel{flex:1;padding:9px;border:none;border-radius:4px;
+                      font-size:13px;font-weight:bold;cursor:pointer;
+                      background:#e0e0e0;color:#333}
+    button.btn-cancel:hover{background:#ccc}
+    .btn-confirmar{display:none;background:#e65100;color:#fff;margin-top:6px;
+                   width:100%;padding:9px;border:none;border-radius:4px;
+                   font-weight:bold;cursor:pointer;font-size:13px}
+
+    /* ── Exclusão ── */
+    .excl-aviso{background:#FEF2F2;border:1px solid #FECACA;border-radius:5px;
+                padding:10px 12px;font-size:12px;color:#DC2626;margin-bottom:10px;
+                display:none;line-height:1.5}
+
+    /* ── Mensagens ── */
+    .msg{margin-top:9px;padding:8px 10px;border-radius:4px;font-size:12px;
+         display:none;white-space:pre-wrap}
+    .msg-ok   {background:#e8f5e9;color:#2e7d32;border:1px solid #a5d6a7}
+    .msg-erro {background:#ffebee;color:#c62828;border:1px solid #ef9a9a}
+    .msg-aviso{background:#fff8e1;color:#f57f17;border:1px solid #ffe082}
+    .spinner  {display:none;text-align:center;color:#666;margin-top:8px;font-size:12px}
+  </style>
+</head>
+<body>
+
+<!-- ════════ TELA 0 — SELEÇÃO ════════ -->
+<div id="screen-sel" class="screen ativo">
+  <div class="titulo">➕ Lançar / Excluir Devolução</div>
+  <div class="sel-grid">
+    <div class="sel-card" onclick="irPara('unico')">
+      <span class="icone">📝</span>
+      <div class="txt">
+        <strong>Lançamento Individual</strong>
+        <span>Registrar uma única NF de devolução</span>
+      </div>
+    </div>
+    <div class="sel-card" onclick="irPara('lote')">
+      <span class="icone">📋</span>
+      <div class="txt">
+        <strong>Lançamento em Lote</strong>
+        <span>Registrar várias NFs de uma vez no mesmo fornecedor</span>
+      </div>
+    </div>
+    <div class="sel-card" onclick="irPara('excluir')">
+      <span class="icone">🗑️</span>
+      <div class="txt">
+        <strong>Excluir Lançamento</strong>
+        <span>Remover uma NF Pendente com registro no histórico</span>
+      </div>
+    </div>
+  </div>
+  <div class="botoes">
+    <button class="btn-cancel" onclick="google.script.host.close()">✖ Fechar</button>
+  </div>
+</div>
+
+<!-- ════════ TELA 1 — LANÇAMENTO INDIVIDUAL ════════ -->
+<div id="screen-unico" class="screen">
+  <div class="titulo">
+    <button class="back" onclick="voltar()">← Voltar</button>
+    📝 Lançamento Individual
+  </div>
+
+  <div class="campo">
+    <label>Fornecedor / Aba <span class="obrig">*</span></label>
+    <select id="u-aba" onchange="onAbaChange('u')">
+      <option value="">— Selecione —</option>
+      <option value="Britania">Britania</option>
+      <option value="Unilever">Unilever</option>
+      <option value="Fornecedores Variados">Fornecedores Variados</option>
+    </select>
+  </div>
+  <div id="u-campo-forn" class="campo" style="display:none">
+    <label>Nome do Fornecedor <span class="obrig">*</span></label>
+    <input type="text" id="u-fornecedor" placeholder="Ex: Ambev, P&G...">
+  </div>
+
+  <div class="secao">📋 DADOS DA NOTA</div>
+  <div class="linha2">
+    <div class="campo">
+      <label>NFD <span style="font-weight:normal;color:#888">(opcional)</span></label>
+      <input type="text" id="u-nfd" placeholder="Nº NFD">
+    </div>
+    <div class="campo">
+      <label>Tipo</label>
+      <select id="u-tipo">
+        <option value="">— Selecione —</option>
+        <option value="Falta">Falta</option>
+        <option value="Avaria">Avaria</option>
+        <option value="Rejeição">Rejeição</option>
+      </select>
+    </div>
+    <div class="campo">
+      <label>Nº NF <span class="obrig">*</span></label>
+      <input type="text" id="u-nf" placeholder="Nº da NF original">
+    </div>
+  </div>
+  <div class="campo">
+    <label>Motivo</label>
+    <input type="text" id="u-motivo" placeholder="Ex: MEDIDAS FORA DA TOLERÂNCIA...">
+  </div>
+  <div class="campo">
+    <label>Descrição do Produto <span class="obrig">*</span></label>
+    <textarea id="u-desc" rows="2" placeholder="Ex: Shampoo 400ml caixa c/12"></textarea>
+  </div>
+  <div class="linha2">
+    <div class="campo">
+      <label>Quantidade <span class="obrig">*</span></label>
+      <input type="number" id="u-qtd" min="1" placeholder="0">
+    </div>
+    <div class="campo">
+      <label>Valor Unitário (R$) <span class="obrig">*</span></label>
+      <input type="text" id="u-valor" placeholder="0,00">
+    </div>
+  </div>
+
+  <div class="secao">📎 ANEXO DA NF (opcional)</div>
+  <div class="drop" id="u-drop" onclick="document.getElementById('u-file').click()">
+    📁 Clique ou arraste a foto / PDF da NF aqui<br>
+    <small>JPG, PNG ou PDF — máx. 5 MB</small>
+    <img id="u-prevImg" style="max-width:100%;max-height:70px;margin-top:5px;display:none">
+    <div id="u-prevNome" style="font-size:11px;color:#555;margin-top:4px;display:none"></div>
+  </div>
+  <input type="file" id="u-file" accept="image/jpeg,image/png,application/pdf" onchange="onFileSelect(this.files[0],'u')">
+
+  <div class="botoes">
+    <button class="btn-principal" id="u-btn" onclick="salvarUnico()">💾 Salvar</button>
+    <button class="btn-cancel" onclick="google.script.host.close()">✖ Cancelar</button>
+  </div>
+  <button class="btn-confirmar" id="u-confirmar" onclick="confirmarUnico()">⚠️ NF duplicada — Confirmar mesmo assim</button>
+  <div class="spinner" id="u-spin">⏳ Salvando...</div>
+  <div class="msg" id="u-msg"></div>
+</div>
+
+<!-- ════════ TELA 2 — LANÇAMENTO EM LOTE ════════ -->
+<div id="screen-lote" class="screen">
+  <div class="titulo">
+    <button class="back" onclick="voltar()">← Voltar</button>
+    📋 Lançamento em Lote
+  </div>
+
+  <div class="campo">
+    <label>Fornecedor / Aba <span class="obrig">*</span></label>
+    <select id="l-aba" onchange="onAbaChange('l')">
+      <option value="">— Selecione —</option>
+      <option value="Britania">Britania</option>
+      <option value="Unilever">Unilever</option>
+      <option value="Fornecedores Variados">Fornecedores Variados</option>
+    </select>
+  </div>
+  <div id="l-campo-forn" class="campo" style="display:none">
+    <label>Nome do Fornecedor <span class="obrig">*</span></label>
+    <input type="text" id="l-fornecedor" placeholder="Ex: Ambev, P&G...">
+  </div>
+
+  <div class="secao">📋 ITENS DO LOTE</div>
+  <div id="l-itens"></div>
+  <button class="btn-add" onclick="adicionarItem()">+ Adicionar outro item</button>
+
+  <div class="botoes">
+    <button class="btn-principal" id="l-btn" onclick="salvarLote()">💾 Salvar Lote</button>
+    <button class="btn-cancel" onclick="google.script.host.close()">✖ Cancelar</button>
+  </div>
+  <div class="spinner" id="l-spin">⏳ Salvando lote...</div>
+  <div class="msg" id="l-msg"></div>
+</div>
+
+<!-- ════════ TELA 3 — EXCLUIR ════════ -->
+<div id="screen-excluir" class="screen">
+  <div class="titulo">
+    <button class="back" onclick="voltar()">← Voltar</button>
+    🗑️ Excluir Lançamento
+  </div>
+
+  <div style="background:#FEF2F2;border-left:4px solid #DC2626;padding:9px 12px;
+              border-radius:0 5px 5px 0;font-size:12px;color:#374151;margin-bottom:12px;line-height:1.6">
+    ⚠️ <strong>Atenção:</strong> Só é possível excluir itens com status <strong>Pendente</strong>.<br>
+    A exclusão é registrada no histórico com o motivo informado.
+  </div>
+
+  <div class="campo">
+    <label>Nº NF ou NFD <span class="obrig">*</span></label>
+    <input type="text" id="e-nf" placeholder="Digite o número da NF ou NFD">
+  </div>
+
+  <div class="campo">
+    <label>Motivo da exclusão <span class="obrig">*</span></label>
+    <textarea id="e-motivo" rows="2" placeholder="Ex: Lançamento duplicado, erro de digitação..."></textarea>
+  </div>
+
+  <div class="excl-aviso" id="e-aviso"></div>
+
+  <div class="botoes">
+    <button class="btn-principal" id="e-btn" onclick="buscarParaExcluir()" style="background:#DC2626">🔍 Buscar NF</button>
+    <button class="btn-cancel" onclick="google.script.host.close()">✖ Cancelar</button>
+  </div>
+  <button class="btn-confirmar" id="e-confirmar" onclick="confirmarExclusao()" style="background:#DC2626">
+    🗑️ Confirmar Exclusão
+  </button>
+  <div class="spinner" id="e-spin">⏳ Processando...</div>
+  <div class="msg" id="e-msg"></div>
+</div>
+
+<script>
+// ── Estado ───────────────────────────────────────────────────
+var telaAtual = 'sel';
+var _u_b64 = null, _u_mime = null, _u_nome = null, _u_dadosConfirmar = null;
+var _e_itemEncontrado = null;
+var _contadorItens = 0;
+
+// ── Navegação ────────────────────────────────────────────────
+function irPara(tela) {
+  document.getElementById('screen-sel').classList.remove('ativo');
+  document.getElementById('screen-' + tela).classList.add('ativo');
+  telaAtual = tela;
+  if (tela === 'lote' && document.getElementById('l-itens').children.length === 0) {
+    adicionarItem();
+  }
+}
+
+function voltar() {
+  document.getElementById('screen-' + telaAtual).classList.remove('ativo');
+  document.getElementById('screen-sel').classList.add('ativo');
+  telaAtual = 'sel';
+}
+
+// ── ABA change ───────────────────────────────────────────────
+function onAbaChange(prefix) {
+  var v = document.getElementById(prefix + '-aba').value;
+  document.getElementById(prefix + '-campo-forn').style.display =
+    v === 'Fornecedores Variados' ? 'block' : 'none';
+}
+
+// ── Upload (apenas individual) ───────────────────────────────
+var drop = document.getElementById('u-drop');
+drop.addEventListener('dragover', function(e){ e.preventDefault(); drop.classList.add('over'); });
+drop.addEventListener('dragleave', function(){ drop.classList.remove('over'); });
+drop.addEventListener('drop', function(e){
+  e.preventDefault(); drop.classList.remove('over');
+  if (e.dataTransfer.files[0]) onFileSelect(e.dataTransfer.files[0], 'u');
+});
+
+function onFileSelect(file, prefix) {
+  if (!file) return;
+  if (file.size > 5 * 1024 * 1024) { mostrar(prefix, 'erro', '❌ Arquivo muito grande (máx. 5 MB).'); return; }
+  if (['image/jpeg','image/png','application/pdf'].indexOf(file.type) === -1) {
+    mostrar(prefix, 'erro', '❌ Use JPG, PNG ou PDF.'); return;
+  }
+  _u_mime = file.type; _u_nome = file.name;
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    _u_b64 = e.target.result.split(',')[1];
+    if (file.type.startsWith('image/')) {
+      var img = document.getElementById('u-prevImg');
+      img.src = e.target.result; img.style.display = 'block';
+    } else { document.getElementById('u-prevImg').style.display = 'none'; }
+    var pn = document.getElementById('u-prevNome');
+    pn.textContent = '📄 ' + file.name + ' (' + (file.size/1024).toFixed(1) + ' KB)';
+    pn.style.display = 'block';
+  };
+  reader.readAsDataURL(file);
+}
+
+// ── Lançamento Individual ────────────────────────────────────
+function salvarUnico() {
+  document.getElementById('u-confirmar').style.display = 'none';
+  var d = coletarDadosUnico();
+  var err = validarItem(d);
+  if (err) { mostrar('u', 'erro', '❌ ' + err); return; }
+  setLoading('u', true);
+  google.script.run
+    .withSuccessHandler(function(resp) {
+      setLoading('u', false);
+      var r = JSON.parse(resp);
+      if (r.ok) { mostrar('u', 'ok', r.ok); setTimeout(limparUnico, 2000); }
+      else if (r.aviso) {
+        mostrar('u', 'aviso', '⚠️ ' + r.aviso);
+        _u_dadosConfirmar = d;
+        document.getElementById('u-confirmar').style.display = 'block';
+      } else { mostrar('u', 'erro', '❌ ' + r.erro); }
+    })
+    .withFailureHandler(function(e) { setLoading('u', false); mostrar('u', 'erro', '❌ ' + e.message); })
+    .salvarLancamentoForm(d);
+}
+
+function confirmarUnico() {
+  if (!_u_dadosConfirmar) return;
+  document.getElementById('u-confirmar').style.display = 'none';
+  setLoading('u', true);
+  google.script.run
+    .withSuccessHandler(function(resp) {
+      setLoading('u', false);
+      var r = JSON.parse(resp);
+      if (r.ok) { mostrar('u', 'ok', r.ok); setTimeout(limparUnico, 2000); }
+      else { mostrar('u', 'erro', '❌ ' + (r.erro || 'Erro.')); }
+    })
+    .withFailureHandler(function(e) { setLoading('u', false); mostrar('u', 'erro', '❌ ' + e.message); })
+    .salvarLancamentoFormConfirmado(_u_dadosConfirmar);
+}
+
+function coletarDadosUnico() {
+  return {
+    abaSelecao: document.getElementById('u-aba').value.trim(),
+    nfd:        document.getElementById('u-nfd').value.trim(),
+    tipo:       document.getElementById('u-tipo').value.trim(),
+    motivo:     document.getElementById('u-motivo').value.trim(),
+    nf:         document.getElementById('u-nf').value.trim(),
+    descricao:  document.getElementById('u-desc').value.trim(),
+    qtd:        document.getElementById('u-qtd').value.trim(),
+    valorUnit:  document.getElementById('u-valor').value.trim().replace(',','.'),
+    fornecedor: document.getElementById('u-fornecedor').value.trim(),
+    base64:     _u_b64 || '',
+    mimeType:   _u_mime || '',
+    nomeArquivo:_u_nome || ''
+  };
+}
+
+function limparUnico() {
+  ['u-aba','u-nfd','u-nf','u-motivo','u-qtd','u-valor','u-fornecedor'].forEach(function(id){
+    var el = document.getElementById(id);
+    if (el.tagName==='SELECT') el.selectedIndex=0; else el.value='';
+  });
+  document.getElementById('u-tipo').selectedIndex = 0;
+  document.getElementById('u-desc').value = '';
+  document.getElementById('u-campo-forn').style.display = 'none';
+  document.getElementById('u-prevImg').style.display = 'none';
+  document.getElementById('u-prevNome').style.display = 'none';
+  document.getElementById('u-confirmar').style.display = 'none';
+  document.getElementById('u-msg').style.display = 'none';
+  _u_b64=null; _u_mime=null; _u_nome=null; _u_dadosConfirmar=null;
+}
+
+// ── Lançamento em Lote — store de arquivos por item ──────────
+var _loteArquivos = {}; // { n: { b64, mime, nome } }
+
+function adicionarItem() {
+  _contadorItens++;
+  var n = _contadorItens;
+  _loteArquivos[n] = { b64: '', mime: '', nome: '' };
+
+  var div = document.createElement('div');
+  div.className = 'item-card';
+  div.id = 'item-' + n;
+  div.innerHTML =
+    '<div class="item-num">ITEM ' + n +
+      '<button class="btn-rem" onclick="removerItem(' + n + ')">✖ Remover</button>' +
+    '</div>' +
+    '<div class="linha2">' +
+      '<div class="campo"><label>NFD</label><input type="text" id="li-nfd-'+n+'" placeholder="NFD (opcional)"></div>' +
+      '<div class="campo"><label>Tipo</label><select id="li-tipo-'+n+'"><option value="">—</option><option>Falta</option><option>Avaria</option><option>Rejeição</option></select></div>' +
+      '<div class="campo"><label>Nº NF <span class="obrig">*</span></label><input type="text" id="li-nf-'+n+'" placeholder="Nº NF"></div>' +
+    '</div>' +
+    '<div class="campo"><label>Motivo</label><input type="text" id="li-motivo-'+n+'" placeholder="Motivo"></div>' +
+    '<div class="campo"><label>Descrição <span class="obrig">*</span></label><input type="text" id="li-desc-'+n+'" placeholder="Descrição do produto"></div>' +
+    '<div class="linha2">' +
+      '<div class="campo"><label>Qtd <span class="obrig">*</span></label><input type="number" id="li-qtd-'+n+'" min="1" placeholder="0"></div>' +
+      '<div class="campo"><label>Vl Unit (R$) <span class="obrig">*</span></label><input type="text" id="li-valor-'+n+'" placeholder="0,00"></div>' +
+    '</div>' +
+    // ── Área de upload do anexo por item ──
+    '<div style="margin-top:6px">' +
+      '<div class="drop" id="li-drop-'+n+'" onclick="document.getElementById(\'li-file-'+n+'\').click()" ' +
+           'style="padding:8px;font-size:11px;color:#888">' +
+        '📎 Clique para anexar a NF (JPG, PNG ou PDF — máx. 5 MB)' +
+        '<div id="li-prev-'+n+'" style="font-size:11px;color:#2D5F8A;margin-top:3px;display:none"></div>' +
+      '</div>' +
+      '<input type="file" id="li-file-'+n+'" accept="image/jpeg,image/png,application/pdf" ' +
+             'onchange="onFileSelectLote(this.files[0],' + n + ')">' +
+    '</div>';
+
+  document.getElementById('l-itens').appendChild(div);
+
+  // Drag & drop no card recém-criado
+  var dropEl = document.getElementById('li-drop-' + n);
+  (function(nn, el) {
+    el.addEventListener('dragover',  function(e){ e.preventDefault(); el.style.borderColor='#2D5F8A'; });
+    el.addEventListener('dragleave', function(){ el.style.borderColor='#aaa'; });
+    el.addEventListener('drop', function(e){
+      e.preventDefault(); el.style.borderColor='#aaa';
+      if (e.dataTransfer.files[0]) onFileSelectLote(e.dataTransfer.files[0], nn);
+    });
+  })(n, dropEl);
+}
+
+function onFileSelectLote(file, n) {
+  if (!file) return;
+  if (file.size > 5 * 1024 * 1024) { mostrar('l','erro','❌ Item ' + n + ': arquivo muito grande (máx. 5 MB).'); return; }
+  if (['image/jpeg','image/png','application/pdf'].indexOf(file.type) === -1) {
+    mostrar('l','erro','❌ Item ' + n + ': use JPG, PNG ou PDF.'); return;
+  }
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    if (!_loteArquivos[n]) _loteArquivos[n] = {};
+    _loteArquivos[n].b64  = e.target.result.split(',')[1];
+    _loteArquivos[n].mime = file.type;
+    _loteArquivos[n].nome = file.name;
+    var prev = document.getElementById('li-prev-' + n);
+    if (prev) {
+      prev.textContent = '✅ ' + file.name + ' (' + (file.size/1024).toFixed(1) + ' KB)';
+      prev.style.display = 'block';
+    }
+    var drop = document.getElementById('li-drop-' + n);
+    if (drop) drop.style.borderColor = '#2D5F8A';
+  };
+  reader.readAsDataURL(file);
+}
+
+function removerItem(n) {
+  var el = document.getElementById('item-' + n);
+  if (el) el.remove();
+  delete _loteArquivos[n];
+}
+
+function salvarLote() {
+  var aba = document.getElementById('l-aba').value.trim();
+  if (!aba) { mostrar('l','erro','❌ Selecione o fornecedor/aba.'); return; }
+  var forn = '';
+  if (aba === 'Fornecedores Variados') {
+    forn = document.getElementById('l-fornecedor').value.trim();
+    if (!forn) { mostrar('l','erro','❌ Informe o nome do fornecedor.'); return; }
+  }
+  var itens = [];
+  var cards = document.getElementById('l-itens').querySelectorAll('.item-card');
+  for (var i = 0; i < cards.length; i++) {
+    var id    = cards[i].id.replace('item-','');
+    var nf    = document.getElementById('li-nf-'+id).value.trim();
+    var desc  = document.getElementById('li-desc-'+id).value.trim();
+    var qtd   = document.getElementById('li-qtd-'+id).value.trim();
+    var valor = document.getElementById('li-valor-'+id).value.trim().replace(',','.');
+    if (!nf || !desc || !qtd || isNaN(+qtd) || +qtd<=0 || !valor || isNaN(+valor) || +valor<0) {
+      mostrar('l','erro','❌ Item ' + (i+1) + ': preencha NF, descrição, quantidade e valor.'); return;
+    }
+    var arq = _loteArquivos[id] || {};
+    itens.push({
+      abaSelecao:  aba,
+      fornecedor:  forn,
+      nfd:         document.getElementById('li-nfd-'+id).value.trim(),
+      tipo:        document.getElementById('li-tipo-'+id).value.trim(),
+      motivo:      document.getElementById('li-motivo-'+id).value.trim(),
+      nf:          nf,
+      descricao:   desc,
+      qtd:         qtd,
+      valorUnit:   valor,
+      base64:      arq.b64  || '',
+      mimeType:    arq.mime || '',
+      nomeArquivo: arq.nome || ''
+    });
+  }
+  if (!itens.length) { mostrar('l','erro','❌ Adicione ao menos um item.'); return; }
+  setLoading('l', true);
+  mostrar('l','ok','⏳ Salvando ' + itens.length + ' item(ns)...');
+  google.script.run
+    .withSuccessHandler(function(resp) {
+      setLoading('l', false);
+      var r = JSON.parse(resp);
+      if (r.ok) {
+        mostrar('l','ok', r.ok);
+        setTimeout(function(){
+          document.getElementById('l-itens').innerHTML='';
+          _loteArquivos = {};
+          _contadorItens = 0;
+          adicionarItem();
+          document.getElementById('l-msg').style.display='none';
+        }, 3000);
+      } else { mostrar('l','erro','❌ ' + (r.erro||'Erro.')); }
+    })
+    .withFailureHandler(function(e){ setLoading('l',false); mostrar('l','erro','❌ '+e.message); })
+    .salvarLoteLancamentos(itens);
+}
+
+// ── Exclusão segura ──────────────────────────────────────────
+function buscarParaExcluir() {
+  var nf     = document.getElementById('e-nf').value.trim();
+  var motivo = document.getElementById('e-motivo').value.trim();
+  if (!nf)     { mostrar('e','erro','❌ Informe a NF ou NFD.'); return; }
+  if (!motivo) { mostrar('e','erro','❌ Informe o motivo da exclusão.'); return; }
+  setLoading('e', true);
+  document.getElementById('e-confirmar').style.display = 'none';
+  document.getElementById('e-aviso').style.display = 'none';
+  google.script.run
+    .withSuccessHandler(function(resp) {
+      setLoading('e', false);
+      var r = JSON.parse(resp);
+      if (r.erro) { mostrar('e','erro','❌ ' + r.erro); return; }
+      _e_itemEncontrado = r.item;
+      var av = document.getElementById('e-aviso');
+      av.innerHTML = '🔍 <strong>Item encontrado:</strong><br>' +
+        'NF: <strong>' + esc(r.item.nf) + '</strong>' +
+        (r.item.nfd ? ' / NFD: <strong>' + esc(r.item.nfd) + '</strong>' : '') +
+        '<br>Aba: ' + esc(r.item.aba) + ' | Status: ' + esc(r.item.status) +
+        '<br>Descrição: ' + esc(r.item.desc);
+      av.style.display = 'block';
+      document.getElementById('e-confirmar').style.display = 'block';
+      mostrar('e','aviso','⚠️ Confirme a exclusão acima.');
+    })
+    .withFailureHandler(function(e){ setLoading('e',false); mostrar('e','erro','❌ '+e.message); })
+    .buscarNFParaExcluir(nf);
+}
+
+function confirmarExclusao() {
+  if (!_e_itemEncontrado) return;
+  var motivo = document.getElementById('e-motivo').value.trim();
+  document.getElementById('e-confirmar').style.display = 'none';
+  setLoading('e', true);
+  google.script.run
+    .withSuccessHandler(function(resp) {
+      setLoading('e', false);
+      var r = JSON.parse(resp);
+      if (r.ok) {
+        mostrar('e','ok', r.ok);
+        document.getElementById('e-nf').value='';
+        document.getElementById('e-motivo').value='';
+        document.getElementById('e-aviso').style.display='none';
+        _e_itemEncontrado=null;
+      } else { mostrar('e','erro','❌ ' + (r.erro||'Erro.')); }
+    })
+    .withFailureHandler(function(e){ setLoading('e',false); mostrar('e','erro','❌ '+e.message); })
+    .excluirLancamento({ item: _e_itemEncontrado, motivo: motivo });
+}
+
+// ── Helpers ──────────────────────────────────────────────────
+function validarItem(d) {
+  if (!d.abaSelecao) return 'Selecione o fornecedor/aba.';
+  if (!d.nf)         return 'Informe o número da NF.';
+  if (!d.descricao)  return 'Informe a descrição do produto.';
+  if (!d.qtd||isNaN(+d.qtd)||+d.qtd<=0) return 'Informe uma quantidade válida.';
+  if (!d.valorUnit||isNaN(+d.valorUnit)||+d.valorUnit<0) return 'Informe um valor unitário válido.';
+  if (d.abaSelecao==='Fornecedores Variados'&&!d.fornecedor) return 'Informe o nome do fornecedor.';
+  return null;
+}
+
+function setLoading(p, sim) {
+  document.getElementById(p+'-spin').style.display = sim ? 'block' : 'none';
+  var btn = document.getElementById(p+'-btn');
+  if (btn) btn.disabled = sim;
+}
+
+function mostrar(p, tipo, txt) {
+  var el = document.getElementById(p+'-msg');
+  el.className = 'msg msg-'+tipo; el.textContent = txt; el.style.display = 'block';
+}
+
+function esc(s) {
+  return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+</script>
+</body>
+</html>
