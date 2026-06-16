@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <base target="_top">
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:Arial,sans-serif;font-size:13px;background:#F0F2F5;padding:14px}
+
+    .titulo{background:#4A148C;color:#fff;padding:12px 16px;border-radius:6px;
+            font-size:14px;font-weight:bold;margin-bottom:14px;display:flex;
+            align-items:center;gap:8px}
+    .titulo .back{cursor:pointer;background:rgba(255,255,255,.18);border:none;
+                  color:#fff;border-radius:4px;padding:3px 9px;font-size:12px;font-weight:bold}
+    .titulo .back:hover{background:rgba(255,255,255,.3)}
+    .badge{font-size:10px;background:rgba(255,255,255,.22);border-radius:4px;padding:2px 8px;font-weight:normal}
+
+    .sel-grid{display:flex;flex-direction:column;gap:10px;margin-bottom:14px}
+    .sel-card{display:flex;align-items:center;gap:14px;background:#fff;
+              border:2px solid #D1D5DB;border-radius:8px;padding:14px 16px;
+              cursor:pointer;transition:all .18s}
+    .sel-card:hover{border-color:#4A148C;background:#F3E5F5}
+    .sel-card .icone{font-size:26px;line-height:1}
+    .sel-card .txt strong{display:block;font-size:13px;color:#4A148C;margin-bottom:2px}
+    .sel-card .txt span{font-size:11px;color:#6B7280}
+
+    .screen{display:none}
+    .screen.ativo{display:block}
+
+    /* ── Histórico NF ── */
+    .barra{display:flex;gap:8px;margin-bottom:10px}
+    input[type=text]{flex:1;padding:8px 10px;border:1px solid #ccc;border-radius:4px;font-size:13px}
+    input[type=text]:focus{outline:none;border-color:#4A148C}
+    button.btn-buscar{padding:8px 14px;border:none;border-radius:4px;font-size:13px;
+                      font-weight:bold;cursor:pointer;background:#4A148C;color:#fff;white-space:nowrap}
+    button.btn-buscar:hover{background:#38006b}
+    button.btn-cancel{padding:8px 14px;border:none;border-radius:4px;font-size:13px;
+                      font-weight:bold;cursor:pointer;background:#E5E7EB;color:#374151;white-space:nowrap}
+    button.btn-cancel:hover{background:#D1D5DB}
+
+    .nf-header{background:#EDE7F6;border:1px solid #CE93D8;border-radius:4px;
+               padding:8px 12px;margin-bottom:8px;font-size:12px}
+    .nf-header strong{font-size:13px;color:#4A148C}
+
+    /* ── Tabelas ── */
+    .scroll{max-height:320px;overflow-y:auto;border:1px solid #ddd;border-radius:4px;background:#fff}
+    table{width:100%;border-collapse:collapse;font-size:11px}
+    thead th{background:#4A148C;color:#fff;padding:7px 8px;text-align:left;position:sticky;top:0;z-index:1}
+    tbody td{padding:6px 8px;border-bottom:1px solid #F3F4F6;vertical-align:top;word-break:break-word}
+    tbody tr:hover td{background:#F3E5F5}
+    .acao-badge{display:inline-block;background:#EDE7F6;color:#6A1B9A;border-radius:3px;padding:1px 5px;font-size:10px}
+    .vazio{text-align:center;color:#999;padding:20px;font-style:italic}
+
+    /* ── Emails ── */
+    .barra-email{display:flex;gap:8px;margin-bottom:10px;align-items:center}
+    .contador{font-size:11px;color:#6B7280;margin-bottom:5px}
+    .val{text-align:right;font-family:monospace;white-space:nowrap}
+    .nfds{color:#6B7280;font-size:10px;max-width:160px;word-break:break-all}
+
+    /* ── Log ── */
+    .filtros-log{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap}
+    .filtros-log input,.filtros-log select{
+      padding:6px 9px;border:1px solid #ccc;border-radius:4px;font-size:12px;flex:1;min-width:120px}
+
+    /* ── Mensagens ── */
+    .msg{margin-top:8px;padding:8px 10px;border-radius:4px;font-size:12px;display:none}
+    .msg-ok  {background:#EDE7F6;color:#4A148C;border:1px solid #CE93D8}
+    .msg-erro{background:#FEF2F2;color:#DC2626;border:1px solid #FECACA}
+    .spinner {display:none;text-align:center;color:#6B7280;padding:16px;font-size:12px}
+
+    .botoes-baixo{display:flex;gap:8px;margin-top:10px}
+  </style>
+</head>
+<body>
+
+<!-- ════════ TELA 0 — SELEÇÃO ════════ -->
+<div id="screen-sel" class="screen ativo">
+  <div class="titulo">🔍 Auditoria e Histórico</div>
+  <div class="sel-grid">
+    <div class="sel-card" onclick="irPara('historico')">
+      <span class="icone">📋</span>
+      <div class="txt">
+        <strong>Histórico de Alterações</strong>
+        <span>Consultar todas as alterações registradas para uma NF específica</span>
+      </div>
+    </div>
+    <div class="sel-card" onclick="irPara('emails')">
+      <span class="icone">📬</span>
+      <div class="txt">
+        <strong>Histórico de E-mails Enviados</strong>
+        <span>Visualizar e filtrar todos os e-mails de devolução disparados</span>
+      </div>
+    </div>
+    <div class="sel-card" onclick="irPara('log')">
+      <span class="icone">📊</span>
+      <div class="txt">
+        <strong>Log do Sistema</strong>
+        <span>Consultar todas as ações registradas no _Log por período ou usuário</span>
+      </div>
+    </div>
+  </div>
+  <div class="botoes-baixo">
+    <button class="btn-cancel" style="flex:1" onclick="google.script.host.close()">✖ Fechar</button>
+  </div>
+</div>
+
+<!-- ════════ TELA 1 — HISTÓRICO NF ════════ -->
+<div id="screen-historico" class="screen">
+  <div class="titulo">
+    <button class="back" onclick="voltar()">← Voltar</button>
+    📋 Histórico de Alterações <span class="badge">NF</span>
+  </div>
+  <div class="barra">
+    <input type="text" id="h-nf" placeholder="Digite o número da NF ou NFD..."
+           onkeydown="if(event.key==='Enter')buscarHistorico()">
+    <button class="btn-buscar" onclick="buscarHistorico()">🔍 Buscar</button>
+    <button class="btn-cancel" onclick="google.script.host.close()">✖</button>
+  </div>
+  <div class="spinner" id="h-spin">⏳ Consultando histórico...</div>
+  <div class="msg" id="h-msg"></div>
+  <div id="h-resultados" style="display:none">
+    <div class="nf-header" id="h-header"></div>
+    <div class="scroll">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:120px">Data / Hora</th>
+            <th style="width:130px">Usuário</th>
+            <th style="width:65px">Coluna</th>
+            <th>Valor Anterior</th>
+            <th>Novo Valor</th>
+            <th>Ação</th>
+          </tr>
+        </thead>
+        <tbody id="h-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ════════ TELA 2 — HISTÓRICO EMAILS ════════ -->
+<div id="screen-emails" class="screen">
+  <div class="titulo">
+    <button class="back" onclick="voltar()">← Voltar</button>
+    📬 Histórico de E-mails Enviados <span class="badge">E-MAIL</span>
+  </div>
+  <div class="barra-email">
+    <input type="text" id="em-filtro" placeholder="Filtrar por assunto, fornecedor ou NFD..."
+           oninput="filtrarEmails()">
+    <button class="btn-cancel" onclick="google.script.host.close()">✖</button>
+  </div>
+  <div class="contador" id="em-contador" style="display:none"></div>
+  <div class="spinner" id="em-spin">⏳ Carregando histórico...</div>
+  <div class="msg" id="em-msg"></div>
+  <div class="scroll" id="em-scroll" style="display:none">
+    <table>
+      <thead>
+        <tr>
+          <th style="width:110px">Data / Hora</th>
+          <th>Assunto</th>
+          <th style="width:100px">Fornecedor</th>
+          <th style="width:160px">NFDs / NFs</th>
+          <th style="width:130px">Destinatários</th>
+          <th style="width:45px;text-align:center">Itens</th>
+          <th style="width:90px;text-align:right">Valor Total</th>
+          <th style="width:40px;text-align:center">📎</th>
+        </tr>
+      </thead>
+      <tbody id="em-tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ════════ TELA 3 — LOG DO SISTEMA ════════ -->
+<div id="screen-log" class="screen">
+  <div class="titulo">
+    <button class="back" onclick="voltar()">← Voltar</button>
+    📊 Log do Sistema <span class="badge">AUDITORIA</span>
+  </div>
+  <div class="filtros-log">
+    <input type="text" id="lg-usuario" placeholder="Filtrar por usuário...">
+    <select id="lg-aba">
+      <option value="">Todas as abas</option>
+      <option value="Britania">Britania</option>
+      <option value="Unilever">Unilever</option>
+      <option value="Fornecedores Variados">Fornecedores Variados</option>
+      <option value="SISTEMA">Sistema</option>
+    </select>
+    <input type="date" id="lg-data-ini">
+    <input type="date" id="lg-data-fim">
+  </div>
+  <div style="display:flex;gap:8px;margin-bottom:8px">
+    <button class="btn-buscar" style="flex:1" onclick="filtrarLog()">🔍 Filtrar</button>
+    <button class="btn-cancel" onclick="limparFiltrosLog()">↺ Limpar</button>
+    <button class="btn-cancel" onclick="google.script.host.close()">✖</button>
+  </div>
+  <div class="contador" id="lg-contador" style="display:none"></div>
+  <div class="spinner" id="lg-spin">⏳ Carregando log...</div>
+  <div class="msg" id="lg-msg"></div>
+  <div class="scroll" id="lg-scroll" style="display:none">
+    <table>
+      <thead>
+        <tr>
+          <th style="width:115px">Data / Hora</th>
+          <th style="width:120px">Usuário</th>
+          <th style="width:80px">Aba</th>
+          <th style="width:45px;text-align:center">Linha</th>
+          <th style="width:65px">Coluna</th>
+          <th>Valor Anterior</th>
+          <th>Novo Valor</th>
+          <th>Ação</th>
+        </tr>
+      </thead>
+      <tbody id="lg-tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+var telaAtual = 'sel';
+var _emTodos = [];
+var _lgTodos = [];
+
+// ── Navegação ────────────────────────────────────────────────
+function irPara(tela) {
+  document.getElementById('screen-sel').classList.remove('ativo');
+  document.getElementById('screen-' + tela).classList.add('ativo');
+  telaAtual = tela;
+  if (tela === 'emails') carregarEmails();
+  if (tela === 'log')    carregarLog();
+}
+
+function voltar() {
+  document.getElementById('screen-' + telaAtual).classList.remove('ativo');
+  document.getElementById('screen-sel').classList.add('ativo');
+  telaAtual = 'sel';
+}
+
+// ── Histórico NF ─────────────────────────────────────────────
+function buscarHistorico() {
+  var nf = document.getElementById('h-nf').value.trim();
+  if (!nf) { showMsg('h','erro','❌ Informe o número da NF.'); return; }
+  document.getElementById('h-resultados').style.display = 'none';
+  document.getElementById('h-msg').style.display = 'none';
+  document.getElementById('h-spin').style.display = 'block';
+  google.script.run
+    .withSuccessHandler(function(resp) {
+      document.getElementById('h-spin').style.display = 'none';
+      var r = JSON.parse(resp);
+      if (r.erro) { showMsg('h','erro','❌ '+r.erro); return; }
+      renderHistorico(r);
+    })
+    .withFailureHandler(function(e) {
+      document.getElementById('h-spin').style.display='none';
+      showMsg('h','erro','❌ '+e.message);
+    })
+    .buscarHistoricoNF(nf);
+}
+
+function renderHistorico(r) {
+  document.getElementById('h-header').innerHTML =
+    '<strong>NF ' + esc(r.nf) + '</strong> — ' + r.registros.length + ' registro(s) no histórico';
+  var tbody = document.getElementById('h-tbody');
+  tbody.innerHTML = '';
+  if (!r.registros.length) {
+    tbody.innerHTML = '<tr><td colspan="6" class="vazio">Nenhuma alteração registrada para esta NF.</td></tr>';
+  } else {
+    r.registros.slice().reverse().forEach(function(reg) {
+      var tr = document.createElement('tr');
+      tr.innerHTML =
+        '<td style="font-size:10px;color:#555;white-space:nowrap">'+esc(reg.data)+'</td>' +
+        '<td style="font-size:10px">'+esc(reg.usuario||'—')+'</td>' +
+        '<td>'+esc(reg.coluna)+'</td>' +
+        '<td>'+esc(reg.anterior)+'</td>' +
+        '<td>'+esc(reg.novo)+'</td>' +
+        '<td><span class="acao-badge">'+esc(reg.acao)+'</span></td>';
+      tbody.appendChild(tr);
+    });
+  }
+  document.getElementById('h-resultados').style.display = 'block';
+}
+
+// ── Emails ───────────────────────────────────────────────────
+var _emailsCarregados = false;
+
+function carregarEmails() {
+  if (_emailsCarregados) return;
+  document.getElementById('em-spin').style.display = 'block';
+  google.script.run
+    .withSuccessHandler(function(resp) {
+      document.getElementById('em-spin').style.display = 'none';
+      var r = JSON.parse(resp);
+      if (r.erro) { showMsg('em','erro','❌ '+r.erro); return; }
+      _emTodos = r.registros || [];
+      _emailsCarregados = true;
+      renderEmails(_emTodos);
+    })
+    .withFailureHandler(function(e) {
+      document.getElementById('em-spin').style.display='none';
+      showMsg('em','erro','❌ '+e.message);
+    })
+    .buscarHistoricoEmails();
+}
+
+function filtrarEmails() {
+  var termo = document.getElementById('em-filtro').value.trim().toLowerCase();
+  var lista = !termo ? _emTodos : _emTodos.filter(function(r){
+    return (r.assunto+r.forn+r.nfds+r.destinos).toLowerCase().indexOf(termo) !== -1;
+  });
+  renderEmails(lista);
+}
+
+function renderEmails(lista) {
+  var tbody = document.getElementById('em-tbody');
+  tbody.innerHTML = '';
+  if (!lista.length) {
+    tbody.innerHTML = '<tr><td colspan="8" class="vazio">Nenhum e-mail encontrado.</td></tr>';
+  } else {
+    lista.forEach(function(r) {
+      var val = r.totalValor > 0 ? 'R$ '+r.totalValor.toFixed(2).replace('.',',') : '—';
+      var anx = r.anexos > 0 ? '<span style="color:#059669;font-weight:bold">'+r.anexos+'</span>' : '<span style="color:#D1D5DB">—</span>';
+      var tr = document.createElement('tr');
+      tr.innerHTML =
+        '<td style="font-size:10px;color:#555;white-space:nowrap">'+esc(r.data)+'</td>' +
+        '<td><b>'+esc(r.assunto)+'</b></td>' +
+        '<td>'+esc(r.forn)+'</td>' +
+        '<td class="nfds">'+esc(r.nfds)+'</td>' +
+        '<td class="nfds">'+esc(r.destinos)+'</td>' +
+        '<td style="text-align:center;font-weight:bold">'+(r.totalItens||0)+'</td>' +
+        '<td class="val">'+val+'</td>' +
+        '<td style="text-align:center">'+anx+'</td>';
+      tbody.appendChild(tr);
+    });
+  }
+  document.getElementById('em-scroll').style.display = 'block';
+  var cnt = document.getElementById('em-contador');
+  cnt.textContent = lista.length + ' registro(s)' + (_emTodos.length !== lista.length ? ' (filtrado de '+_emTodos.length+')' : '');
+  cnt.style.display = 'block';
+}
+
+// ── Log ──────────────────────────────────────────────────────
+var _logCarregado = false;
+
+/**
+ * Normaliza qualquer formato de data para exibição dd/mm/aaaa HH:mm
+ * e para comparação retorna string compacta YYYYMMDD.
+ * O _Log grava "dd/MM/yyyy HH:mm:ss" via Utilities.formatDate,
+ * mas ao ser relido pelo GAS pode vir como objeto Date serializado
+ * (ex: "Tue Jun 16 2026 03:08:26 GMT-0300...").
+ */
+function fmtData(raw) {
+  if (!raw) return '';
+  var s = String(raw).trim();
+
+  // Já está no formato correto: "dd/MM/yyyy HH:mm:ss"
+  if (/^\d{2}\/\d{2}\/\d{4}/.test(s)) {
+    // Retorna só dd/mm/aaaa HH:mm (sem segundos para economizar espaço)
+    return s.slice(0, 16);
+  }
+
+  // Vem como string de Date JavaScript (ex: "Tue Jun 16 2026 03:08:26 GMT-0300 ...")
+  var d = new Date(s);
+  if (!isNaN(d.getTime())) {
+    var dd  = String(d.getDate()).padStart(2,'0');
+    var mm  = String(d.getMonth()+1).padStart(2,'0');
+    var aaaa = d.getFullYear();
+    var hh  = String(d.getHours()).padStart(2,'0');
+    var mi  = String(d.getMinutes()).padStart(2,'0');
+    return dd+'/'+mm+'/'+aaaa+' '+hh+':'+mi;
+  }
+
+  return s; // fallback
+}
+
+/**
+ * Extrai YYYYMMDD de uma string de data (qualquer formato) para comparação.
+ */
+function dataCompacta(raw) {
+  if (!raw) return '';
+  var s = String(raw).trim();
+
+  // "dd/MM/yyyy HH:mm:ss"
+  if (/^\d{2}\/\d{2}\/\d{4}/.test(s)) {
+    return s.slice(6,10) + s.slice(3,5) + s.slice(0,2);
+  }
+
+  // String de Date JS
+  var d = new Date(s);
+  if (!isNaN(d.getTime())) {
+    return String(d.getFullYear()) +
+           String(d.getMonth()+1).padStart(2,'0') +
+           String(d.getDate()).padStart(2,'0');
+  }
+
+  return '';
+}
+
+function _dataISOHoje() {
+  var d = new Date();
+  return d.getFullYear() + '-' +
+    String(d.getMonth()+1).padStart(2,'0') + '-' +
+    String(d.getDate()).padStart(2,'0');
+}
+
+function _dataISOmesAtras(meses) {
+  var d = new Date();
+  d.setMonth(d.getMonth() - meses);
+  return d.getFullYear() + '-' +
+    String(d.getMonth()+1).padStart(2,'0') + '-' +
+    String(d.getDate()).padStart(2,'0');
+}
+
+function carregarLog() {
+  if (_logCarregado) return;
+  // Define datas padrão antes de mostrar o spinner
+  document.getElementById('lg-data-ini').value = _dataISOmesAtras(1);
+  document.getElementById('lg-data-fim').value = _dataISOHoje();
+  document.getElementById('lg-spin').style.display = 'block';
+  buscarLog();
+}
+
+function filtrarLog() {
+  _logCarregado = false; // força recarregar do servidor com novo período
+  buscarLog();
+}
+
+function buscarLog() {
+  var usuario = document.getElementById('lg-usuario').value.trim().toLowerCase();
+  var aba     = document.getElementById('lg-aba').value;
+  var dataIni = document.getElementById('lg-data-ini').value;
+  var dataFim = document.getElementById('lg-data-fim').value;
+
+  document.getElementById('lg-spin').style.display = 'block';
+  document.getElementById('lg-scroll').style.display = 'none';
+  document.getElementById('lg-contador').style.display = 'none';
+
+  google.script.run
+    .withSuccessHandler(function(resp) {
+      document.getElementById('lg-spin').style.display = 'none';
+      var r = JSON.parse(resp);
+      if (r.erro) { showMsg('lg','erro','❌ '+r.erro); return; }
+      _lgTodos = r.registros || [];
+      _logCarregado = true;
+
+      // Filtra client-side por usuário e aba (período já filtrado no servidor)
+      var dIniC = dataIni.replace(/-/g,'');
+      var dFimC = dataFim.replace(/-/g,'');
+      var filtrados = _lgTodos.filter(function(reg) {
+        if (usuario && reg.usuario.toLowerCase().indexOf(usuario) === -1) return false;
+        if (aba && reg.aba !== aba) return false;
+        // Filtro de data redundante client-side como segurança
+        var dc = dataCompacta(reg.data);
+        if (dIniC && dc && dc < dIniC) return false;
+        if (dFimC && dc && dc > dFimC) return false;
+        return true;
+      });
+
+      renderLog(filtrados);
+    })
+    .withFailureHandler(function(e) {
+      document.getElementById('lg-spin').style.display = 'none';
+      showMsg('lg','erro','❌ '+e.message);
+    })
+    .buscarLogSistema({ dataIni: dataIni, dataFim: dataFim });
+}
+
+function limparFiltrosLog() {
+  document.getElementById('lg-usuario').value = '';
+  document.getElementById('lg-aba').value = '';
+  document.getElementById('lg-data-ini').value = _dataISOmesAtras(1);
+  document.getElementById('lg-data-fim').value = _dataISOHoje();
+  _logCarregado = false;
+  buscarLog();
+}
+
+function renderLog(lista) {
+  var tbody = document.getElementById('lg-tbody');
+  tbody.innerHTML = '';
+  if (!lista.length) {
+    tbody.innerHTML = '<tr><td colspan="8" class="vazio">Nenhum registro encontrado para os filtros selecionados.</td></tr>';
+  } else {
+    // Exibe do mais recente para o mais antigo, máx. 500
+    lista.slice().reverse().slice(0, 500).forEach(function(reg) {
+      var tr = document.createElement('tr');
+      tr.innerHTML =
+        '<td style="font-size:10px;color:#555;white-space:nowrap">' + esc(fmtData(reg.data)) + '</td>' +
+        '<td style="font-size:10px">'     + esc(reg.usuario) + '</td>' +
+        '<td>'                            + esc(reg.aba)     + '</td>' +
+        '<td style="text-align:center">'  + esc(reg.linha)   + '</td>' +
+        '<td>'                            + esc(reg.coluna)  + '</td>' +
+        '<td style="font-size:10px;color:#555">' + esc(reg.anterior) + '</td>' +
+        '<td style="font-size:10px">'     + esc(reg.novo)    + '</td>' +
+        '<td><span class="acao-badge">'   + esc(reg.acao)    + '</span></td>';
+      tbody.appendChild(tr);
+    });
+  }
+  document.getElementById('lg-scroll').style.display = 'block';
+  var cnt = document.getElementById('lg-contador');
+  cnt.textContent = lista.length + ' registro(s)' +
+    (lista.length > 500 ? ' (exibindo 500 mais recentes)' : '');
+  cnt.style.display = 'block';
+}
+
+// ── Helpers ──────────────────────────────────────────────────
+function showMsg(p, tipo, txt) {
+  var el = document.getElementById(p+'-msg');
+  el.className = 'msg msg-'+tipo; el.textContent = txt; el.style.display = 'block';
+}
+function esc(s) {
+  return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+</script>
+</body>
+</html>
