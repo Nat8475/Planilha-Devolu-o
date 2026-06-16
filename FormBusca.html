@@ -63,8 +63,19 @@
 
 <div class="barra">
   <input type="text" id="termo"
-         placeholder="Digite NF, fornecedor ou descrição..."
+         placeholder="Digite NF, NFD, fornecedor ou descrição..."
          onkeydown="if(event.key==='Enter')buscar()">
+  <select id="filtroStatus" onchange="if(_todosResultados.length) aplicarFiltros()" style="padding:8px;border:1px solid #D1D5DB;border-radius:5px;font-size:12px;background:#fff;color:#374151">
+    <option value="">Todos os status</option>
+    <option value="Pendente">Pendente</option>
+    <option value="Devolvido">Devolvido</option>
+    <option value="Venda">Venda</option>
+  </select>
+  <select id="filtroOrigem" onchange="if(_todosResultados.length) aplicarFiltros()" style="padding:8px;border:1px solid #D1D5DB;border-radius:5px;font-size:12px;background:#fff;color:#374151">
+    <option value="">Ativos + Histórico</option>
+    <option value="ativo">Somente Ativos</option>
+    <option value="historico">Somente Histórico</option>
+  </select>
   <button id="btnBuscar" onclick="buscar()">Buscar</button>
   <button id="btnFechar" onclick="google.script.host.close()">✖</button>
 </div>
@@ -129,7 +140,23 @@ function buscar() {
     .executarBusca(termo);
 }
 
+var _todosResultados = [];
+
 function render(lista) {
+  _todosResultados = lista;
+  aplicarFiltros();
+}
+
+function aplicarFiltros() {
+  var filtroStatus = document.getElementById('filtroStatus').value;
+  var filtroOrigem = document.getElementById('filtroOrigem').value;
+
+  var lista = _todosResultados.filter(function(it) {
+    if (filtroStatus && it.status !== filtroStatus) return false;
+    if (filtroOrigem && it.origem !== filtroOrigem) return false;
+    return true;
+  });
+
   var tbody = document.getElementById('tbody');
   tbody.innerHTML = '';
 
@@ -144,7 +171,7 @@ function render(lista) {
 
     tr.innerHTML =
       '<td>' + origemBadge + '</td>' +
-      '<td><b>' + esc(it.nf || it.nfd) + '</b></td>' +
+      '<td><b>' + esc(it.nf || it.nfd) + '</b>' + (it.nfd && it.nf && it.nfd !== it.nf ? '<br><span style="font-size:10px;color:#9CA3AF">NFD: ' + esc(it.nfd) + '</span>' : '') + '</td>' +
       '<td>' + esc(it.forn) + '</td>' +
       '<td>' + esc(it.desc) + '</td>' +
       '<td>' + (badges[it.status] || esc(it.status)) + '</td>' +
@@ -162,8 +189,11 @@ function render(lista) {
   });
 
   document.getElementById('tabela').style.display = 'table';
+  var ativos = lista.filter(function(i){ return i.origem === 'ativo'; }).length;
+  var hist   = lista.filter(function(i){ return i.origem !== 'ativo'; }).length;
   document.getElementById('contador').textContent =
-    lista.length + ' resultado(s) — ativos e histórico';
+    lista.length + ' resultado(s)' +
+    (ativos > 0 || hist > 0 ? ' — ' + ativos + ' ativo(s), ' + hist + ' no histórico' : '');
 }
 
 function erro(txt) {
