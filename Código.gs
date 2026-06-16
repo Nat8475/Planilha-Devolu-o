@@ -2386,7 +2386,7 @@ function buscarDadosNFDs(nfdsRaw) {
     itens:      itens,
     forn:       forns[0],
     titulo:     _montarTituloEmail(itens, forns[0]),
-    emailsBase: EMAILS_DESTINATARIOS
+    emailsBase: _getEmailsGeral()
   });
 }
 
@@ -2450,9 +2450,36 @@ function enviarEmailDevolucao(params) {
   }).join('');
 
   var dataEnvio = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd/MM/yyyy');
-  var obsHtml   = params.obs
-    ? '<p style="margin:14px 0 0;font-size:13px;color:#444"><strong>Observações:</strong> ' + _esc(params.obs) + '</p>'
-    : '';
+  // ── Comunicado de retorno: blob direto na memória, sem salvar no Drive ──
+  var blobComunicado = null;
+  if (params.comBase64 && params.comMime && params.comNome) {
+    try {
+      blobComunicado = Utilities.newBlob(
+        Utilities.base64Decode(params.comBase64),
+        params.comMime,
+        params.comNome
+      );
+    } catch (eCom) {
+      console.error('Erro ao decodificar comunicado: ' + eCom);
+    }
+  }
+
+  var comObsHtml = '';
+  if (blobComunicado) {
+    comObsHtml =
+      '<div style="margin:14px 0 0;padding:10px 14px;background:#FFF8E1;' +
+      'border-left:4px solid #F59E0B;border-radius:0 4px 4px 0">' +
+      '<p style="margin:0;font-size:13px;color:#92400E;font-weight:bold">📋 Comunicado de Retorno em Anexo</p>';
+    if (params.comObs) {
+      comObsHtml += '<p style="margin:6px 0 0;font-size:13px;color:#444">' + _esc(params.comObs) + '</p>';
+    }
+    comObsHtml += '</div>';
+  }
+
+  var obsHtml = comObsHtml;
+  if (params.obs) {
+    obsHtml += '<p style="margin:14px 0 0;font-size:13px;color:#444"><strong>Observações:</strong> ' + _esc(params.obs) + '</p>';
+  }
 
   var htmlBody = _montarHtmlEmail(assunto, dataEnvio, forn, linhasTabela, valorTotal, obsHtml);
 
@@ -2481,15 +2508,20 @@ function enviarEmailDevolucao(params) {
   );
 
   try {
+    var todosBlobs = blobs.slice();
+    if (blobComunicado) todosBlobs.push(blobComunicado);
+
     var mailOpts = {
-      to:      destinatarios.join(','),
-      subject: assunto,
+      to:       destinatarios.join(','),
+      subject:  assunto,
       htmlBody: htmlFinal
     };
-    if (blobs.length) mailOpts.attachments = blobs;
+    if (todosBlobs.length) mailOpts.attachments = todosBlobs;
     MailApp.sendEmail(mailOpts);
 
-    var infoAnexos = blobs.length ? ' | ' + blobs.length + ' arquivo(s) anexado(s)' : ' | sem anexos';
+    var infoAnexos = todosBlobs.length
+      ? ' | ' + todosBlobs.length + ' arquivo(s) anexado(s)' + (blobComunicado ? ' (incl. comunicado)' : '')
+      : ' | sem anexos';
     registrarLog(ss, 'SISTEMA', 0, 0, '', assunto,
       '📧 E-mail devolução enviado para: ' + destinatarios.join(', ') + infoAnexos);
 
@@ -2500,7 +2532,7 @@ function enviarEmailDevolucao(params) {
       forn:          forn,
       totalItens:    itens.length,
       totalValor:    valorTotal,
-      anexos:        blobs.length
+      anexos:        todosBlobs.length
     });
 
     var itensFalta   = itens.filter(function(it) { return it.tipo === 'Falta'; });
@@ -4028,4 +4060,66 @@ function onOpen() {
     .addItem('⚙️ Configurações do Sistema',       'abrirConfiguracoes')
     .addItem('🔧 Configurar/Reinstalar Sistema', 'configurarPlanilha')
     .addToUi();
+}
+
+// ════════════════════════════════════════════════════════════
+//   BUSCA DE LOG DO SISTEMA (para FormAuditoria)
+// ════════════════════════════════════════════════════════════
+
+/**
+ * Retorna registros do _Log filtrados por período (dataIni/dataFim ISO).
+ * Chamada pelo FormAuditoria.html — tela Log do Sistema.
+ */
+function buscarLogSistema(params) {
+  try {
+    var ss    = SpreadsheetApp.getActiveSpreadsheet();
+    var wsLog = ss.getSheetByName('_Log');
+    if (!wsLog) return JSON.stringify({ registros: [] });
+
+    var ul = wsLog.getLastRow();
+    if (ul < 2) return JSON.stringify({ registros: [] });
+
+    var tz      = ss.getSpreadsheetTimeZone();
+    var dataIni = String(params.dataIni || '').replace(/-/g, '');
+    var dataFim = String(params.dataFim || '').replace(/-/g, '');
+
+    var dados = wsLog.getRange(2, 1, ul - 1, 8).getValues();
+    var registros = [];
+
+    dados.forEach(function(l) {
+      if (!l[0]) return;
+      var s = String(l[0]).trim();
+      var compact = '';
+      // "dd/MM/yyyy HH:mm:ss"
+      if (/^\d{2}\/\d{2}\/\d{4}/.test(s)) {
+        compact = s.slice(6,10) + s.slice(3,5) + s.slice(0,2);
+      } else {
+        var d = new Date(s);
+        if (!isNaN(d.getTime())) {
+          compact = String(d.getFullYear()) +
+            String(d.getMonth()+1).padStart(2,'0') +
+            String(d.getDate()).padStart(2,'0');
+        }
+      }
+
+      // Filtro por período (servidor — segurança)
+      if (dataIni && compact && compact < dataIni) return;
+      if (dataFim && compact && compact > dataFim) return;
+
+      registros.push({
+        data:     s,
+        usuario:  String(l[1] || ''),
+        aba:      String(l[2] || ''),
+        linha:    String(l[3] || ''),
+        coluna:   String(l[4] || ''),
+        anterior: String(l[5] || ''),
+        novo:     String(l[6] || ''),
+        acao:     String(l[7] || '')
+      });
+    });
+
+    return JSON.stringify({ registros: registros });
+  } catch (e) {
+    return JSON.stringify({ erro: '❌ ' + e.toString() });
+  }
 }
