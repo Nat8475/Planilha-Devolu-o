@@ -70,6 +70,30 @@
     .msg-erro{background:#ffebee;color:#c62828;border:1px solid #ef9a9a}
     .msg-aviso{background:#fff8e1;color:#f57f17;border:1px solid #ffe082}
     .spinner{display:none;text-align:center;color:#666;margin-top:8px;font-size:12px}
+
+    /* Comunicado */
+    .comunicado-box{background:#FFFBEB;border:1px solid #FCD34D;border-radius:5px;
+                    padding:10px 12px;margin-bottom:9px}
+    .comunicado-toggle{display:flex;align-items:center;gap:8px;margin-bottom:0;cursor:pointer}
+    .comunicado-toggle input[type=checkbox]{width:16px;height:16px;accent-color:#F59E0B;
+                                            cursor:pointer;flex-shrink:0}
+    .comunicado-toggle span{font-size:12px;font-weight:bold;color:#92400E}
+    #comunicado-fields{display:none;margin-top:10px}
+
+    /* Drop zone do comunicado */
+    .drop-com{border:2px dashed #FCD34D;border-radius:5px;background:#FEFCE8;
+              padding:14px 10px;text-align:center;cursor:pointer;transition:background .15s;
+              font-size:12px;color:#92400E}
+    .drop-com:hover{background:#FEF9C3}
+    .drop-com.over{background:#FEF08A;border-color:#EAB308}
+    .drop-com.ok{background:#F0FDF4;border-color:#4ADE80;color:#166534}
+
+    .prev-com{display:none;margin-top:8px;background:#fff;border:1px solid #E5E7EB;
+              border-radius:4px;padding:7px 10px;font-size:11px;color:#374151;
+              display:none;align-items:center;gap:8px}
+    .prev-com .nome{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .prev-com .rm{background:none;border:none;cursor:pointer;color:#DC2626;
+                  font-size:15px;font-weight:bold;flex:none;padding:0 2px}
   </style>
 </head>
 <body>
@@ -90,6 +114,44 @@
   <input type="text" id="emailsExtras" placeholder="ex@email.com; outro@email.com">
 </div>
 
+<div class="secao">📋 COMUNICADO DE RETORNO</div>
+<div class="comunicado-box">
+  <label class="comunicado-toggle">
+    <input type="checkbox" id="chk-comunicado" onchange="toggleComunicado()">
+    <span>Incluir comunicado de retorno como anexo neste e-mail</span>
+  </label>
+
+  <div id="comunicado-fields">
+    <!-- Input oculto para o arquivo -->
+    <input type="file" id="file-comunicado" accept=".pdf,.jpg,.jpeg,.png"
+           style="display:none" onchange="onFileComunicado(this)">
+
+    <!-- Drop zone -->
+    <div class="drop-com" id="drop-com"
+         onclick="document.getElementById('file-comunicado').click()"
+         ondragover="event.preventDefault();this.classList.add('over')"
+         ondragleave="this.classList.remove('over')"
+         ondrop="onDropComunicado(event)">
+      📎 Clique ou arraste o arquivo do comunicado aqui<br>
+      <span style="font-size:10px;opacity:.7">(PDF, JPG ou PNG — máx. 8 MB)</span>
+    </div>
+
+    <!-- Preview do arquivo selecionado -->
+    <div class="prev-com" id="prev-com" style="display:none">
+      <span style="font-size:16px">📄</span>
+      <span class="nome" id="prev-com-nome"></span>
+      <span id="prev-com-tam" style="color:#9CA3AF;font-size:10px;flex-shrink:0"></span>
+      <button class="rm" onclick="removerComunicado()" title="Remover arquivo">✕</button>
+    </div>
+
+    <div class="campo" style="margin-top:8px;margin-bottom:0">
+      <label>Observação sobre o comunicado <span style="font-weight:normal;color:#888">(opcional — aparece no corpo do e-mail)</span></label>
+      <input type="text" id="obs-comunicado"
+             placeholder="Ex: Em anexo segue comunicado de retorno referente à NF 123456">
+    </div>
+  </div>
+</div>
+
 <div class="secao">✏️ COMPLEMENTO</div>
 <div class="campo">
   <label>Assunto do e-mail <span style="font-weight:normal;color:#888">(gerado automaticamente, pode editar)</span></label>
@@ -105,7 +167,7 @@
   <button id="btnCancelar" onclick="google.script.host.close()">✖ Cancelar</button>
 </div>
 
-<!-- ═══ AVISO DE E-MAIL JÁ ENVIADO (item 31) ═══ -->
+<!-- ═══ AVISO DE E-MAIL JÁ ENVIADO ═══ -->
 <div id="aviso-duplicado"></div>
 <button id="btn-confirmar-envio" onclick="enviar(true)">
   ⚠️ E-mail já enviado — Confirmar e Enviar mesmo assim
@@ -135,48 +197,106 @@
 <div id="msg"></div>
 
 <script>
-var _dadosPreview = null;
-var _jaEnviadas   = [];   // NFDs que já tiveram e-mail enviado
+var _dadosPreview      = null;
+var _jaEnviadas        = [];
+var _comBase64         = '';   // base64 do arquivo do comunicado
+var _comMime           = '';
+var _comNome           = '';
 
+// ── Comunicado — toggle ──────────────────────────────────────
+function toggleComunicado() {
+  var chk = document.getElementById('chk-comunicado').checked;
+  document.getElementById('comunicado-fields').style.display = chk ? 'block' : 'none';
+  if (!chk) removerComunicado();
+}
+
+// ── Comunicado — drop ────────────────────────────────────────
+function onDropComunicado(evt) {
+  evt.preventDefault();
+  document.getElementById('drop-com').classList.remove('over');
+  var f = evt.dataTransfer.files[0];
+  if (f) processarArquivoComunicado(f);
+}
+
+function onFileComunicado(input) {
+  if (input.files && input.files[0]) processarArquivoComunicado(input.files[0]);
+}
+
+function processarArquivoComunicado(file) {
+  var maxBytes = 8 * 1024 * 1024;
+  if (file.size > maxBytes) {
+    mostrar('erro', '❌ Arquivo muito grande. O limite é 8 MB.');
+    return;
+  }
+  var tipos = ['application/pdf','image/jpeg','image/jpg','image/png'];
+  if (tipos.indexOf(file.type) === -1) {
+    mostrar('erro', '❌ Formato inválido. Use PDF, JPG ou PNG.');
+    return;
+  }
+
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    var dataUrl = e.target.result;
+    _comBase64  = dataUrl.split(',')[1];
+    _comMime    = file.type;
+    _comNome    = file.name;
+
+    var drop = document.getElementById('drop-com');
+    drop.classList.add('ok');
+    drop.innerHTML = '✅ Arquivo selecionado — clique para trocar';
+
+    var prev = document.getElementById('prev-com');
+    document.getElementById('prev-com-nome').textContent = file.name;
+    document.getElementById('prev-com-tam').textContent  =
+      (file.size / 1024 < 1024)
+        ? Math.round(file.size / 1024) + ' KB'
+        : (file.size / 1048576).toFixed(1) + ' MB';
+    prev.style.display = 'flex';
+    document.getElementById('msg').style.display = 'none';
+  };
+  reader.readAsDataURL(file);
+}
+
+function removerComunicado() {
+  _comBase64 = ''; _comMime = ''; _comNome = '';
+  document.getElementById('file-comunicado').value = '';
+  var drop = document.getElementById('drop-com');
+  drop.classList.remove('ok');
+  drop.innerHTML = '📎 Clique ou arraste o arquivo do comunicado aqui<br>' +
+    '<span style="font-size:10px;opacity:.7">(PDF, JPG ou PNG — máx. 8 MB)</span>';
+  document.getElementById('prev-com').style.display = 'none';
+}
+
+// ── Preview / Envio ──────────────────────────────────────────
 function buscarPreview() {
   var nfds = document.getElementById('nfds').value.trim();
   if (!nfds) { mostrar('erro', '❌ Informe ao menos uma NFD.'); return; }
 
-  document.getElementById('preview').style.display = 'none';
-  document.getElementById('btnEnviar').style.display = 'none';
-  document.getElementById('aviso-duplicado').style.display = 'none';
+  document.getElementById('preview').style.display           = 'none';
+  document.getElementById('btnEnviar').style.display         = 'none';
+  document.getElementById('aviso-duplicado').style.display   = 'none';
   document.getElementById('btn-confirmar-envio').style.display = 'none';
-  document.getElementById('msg').style.display = 'none';
-  document.getElementById('spinner').style.display = 'block';
-  document.getElementById('btnPreview').disabled = true;
+  document.getElementById('msg').style.display               = 'none';
+  document.getElementById('spinner').style.display           = 'block';
+  document.getElementById('btnPreview').disabled             = true;
 
   google.script.run
     .withSuccessHandler(function(respCheck) {
-      try {
-        var check = JSON.parse(respCheck);
-        _jaEnviadas = check.jaEnviadas || [];
-      } catch(_) {
-        _jaEnviadas = [];
-      }
+      try { _jaEnviadas = JSON.parse(respCheck).jaEnviadas || []; } catch(_) { _jaEnviadas = []; }
       buscarPreviewDireto();
     })
-    .withFailureHandler(function() {
-      _jaEnviadas = [];
-      buscarPreviewDireto();
-    })
+    .withFailureHandler(function() { _jaEnviadas = []; buscarPreviewDireto(); })
     .verificarEmailsJaEnviados(nfds);
 }
 
 function buscarPreviewDireto() {
   var nfds = document.getElementById('nfds').value.trim();
-
   google.script.run
     .withSuccessHandler(function(resp) {
-      document.getElementById('spinner').style.display = 'none';
-      document.getElementById('btnPreview').disabled = false;
+      document.getElementById('spinner').style.display  = 'none';
+      document.getElementById('btnPreview').disabled    = false;
       var r = JSON.parse(resp);
       if (r.erro) { mostrar('erro', '❌ ' + r.erro); return; }
-
       _dadosPreview = r;
 
       if (r.emailsBase) {
@@ -197,7 +317,8 @@ function buscarPreviewDireto() {
                   : it.tipo || '—';
         var val = it.valor > 0 ? 'R$ ' + it.valor.toFixed(2).replace('.',',') : '—';
         total += it.valor;
-        var anexoIcon = it.urlAnexo ? ' <span title="Arquivo anexado" style="color:#2E7D32">📎</span>' : '';
+        var anexoIcon = it.urlAnexo
+          ? ' <span title="NF anexada" style="color:#2E7D32">📎</span>' : '';
         tbody.innerHTML +=
           '<tr><td><b>' + esc(it.nfd) + '</b>' + anexoIcon + '</td>' +
           '<td>' + badge + '</td>' +
@@ -229,53 +350,69 @@ function buscarPreviewDireto() {
         });
         avisoEl.innerHTML =
           '⚠️ <strong>Atenção: e-mail já enviado para as seguintes NFDs:</strong><br>' +
-          linhas.join('<br>') +
-          '<br><br>Deseja enviar novamente mesmo assim?';
-        avisoEl.style.display = 'block';
-        document.getElementById('btnEnviar').style.display = 'none';
+          linhas.join('<br>') + '<br><br>Deseja enviar novamente mesmo assim?';
+        avisoEl.style.display                              = 'block';
+        document.getElementById('btnEnviar').style.display          = 'none';
         document.getElementById('btn-confirmar-envio').style.display = 'block';
       } else {
-        document.getElementById('btnEnviar').style.display = 'block';
+        document.getElementById('btnEnviar').style.display           = 'block';
         document.getElementById('btn-confirmar-envio').style.display = 'none';
-        document.getElementById('aviso-duplicado').style.display = 'none';
+        document.getElementById('aviso-duplicado').style.display     = 'none';
       }
     })
     .withFailureHandler(function(e) {
-      document.getElementById('spinner').style.display = 'none';
-      document.getElementById('btnPreview').disabled = false;
+      document.getElementById('spinner').style.display  = 'none';
+      document.getElementById('btnPreview').disabled    = false;
       mostrar('erro', '❌ ' + e.message);
     })
     .buscarDadosNFDs(nfds);
 }
+
 function enviar(forcado) {
-  document.getElementById('btnEnviar').disabled = true;
-  document.getElementById('btn-confirmar-envio').disabled = true;
-  document.getElementById('spinner').style.display = 'block';
-  document.getElementById('msg').style.display = 'none';
-  document.getElementById('aviso-duplicado').style.display = 'none';
+  document.getElementById('btnEnviar').disabled             = true;
+  document.getElementById('btn-confirmar-envio').disabled   = true;
+  document.getElementById('spinner').style.display          = 'block';
+  document.getElementById('msg').style.display              = 'none';
+  document.getElementById('aviso-duplicado').style.display  = 'none';
+
+  var usaComunicado = document.getElementById('chk-comunicado').checked;
+  if (usaComunicado && !_comBase64) {
+    mostrar('erro', '❌ Selecione o arquivo do comunicado de retorno antes de enviar.');
+    document.getElementById('btnEnviar').disabled           = false;
+    document.getElementById('btn-confirmar-envio').disabled = false;
+    document.getElementById('spinner').style.display        = 'none';
+    return;
+  }
 
   var params = {
-    nfdsRaw:      document.getElementById('nfds').value.trim(),
-    emailsExtras: document.getElementById('emailsExtras').value.trim(),
-    assunto:      document.getElementById('assunto').value.trim(),
-    obs:          document.getElementById('obs').value.trim()
+    nfdsRaw:          document.getElementById('nfds').value.trim(),
+    emailsExtras:     document.getElementById('emailsExtras').value.trim(),
+    assunto:          document.getElementById('assunto').value.trim(),
+    obs:              document.getElementById('obs').value.trim(),
+    comBase64:        usaComunicado ? _comBase64 : '',
+    comMime:          usaComunicado ? _comMime   : '',
+    comNome:          usaComunicado ? _comNome   : '',
+    comObs:           usaComunicado ? document.getElementById('obs-comunicado').value.trim() : ''
   };
 
   google.script.run
     .withSuccessHandler(function(resp) {
-      document.getElementById('spinner').style.display = 'none';
-      document.getElementById('btnEnviar').disabled = false;
-      document.getElementById('btn-confirmar-envio').disabled = false;
+      document.getElementById('spinner').style.display          = 'none';
+      document.getElementById('btnEnviar').disabled             = false;
+      document.getElementById('btn-confirmar-envio').disabled   = false;
       var r = JSON.parse(resp);
       if (r.sucesso) {
         mostrar('ok', r.sucesso);
-        document.getElementById('preview').style.display = 'none';
-        document.getElementById('btnEnviar').style.display = 'none';
+        document.getElementById('preview').style.display             = 'none';
+        document.getElementById('btnEnviar').style.display           = 'none';
         document.getElementById('btn-confirmar-envio').style.display = 'none';
-        document.getElementById('nfds').value = '';
-        document.getElementById('assunto').value = '';
-        document.getElementById('obs').value = '';
-        document.getElementById('emailsExtras').value = '';
+        // Limpar todos os campos
+        ['nfds','assunto','obs','emailsExtras','obs-comunicado'].forEach(function(id){
+          document.getElementById(id).value = '';
+        });
+        document.getElementById('chk-comunicado').checked = false;
+        document.getElementById('comunicado-fields').style.display = 'none';
+        removerComunicado();
         _jaEnviadas = [];
       } else {
         mostrar('erro', r.erro || 'Erro desconhecido.');
@@ -283,9 +420,9 @@ function enviar(forcado) {
       }
     })
     .withFailureHandler(function(e) {
-      document.getElementById('spinner').style.display = 'none';
-      document.getElementById('btnEnviar').disabled = false;
-      document.getElementById('btn-confirmar-envio').disabled = false;
+      document.getElementById('spinner').style.display          = 'none';
+      document.getElementById('btnEnviar').disabled             = false;
+      document.getElementById('btn-confirmar-envio').disabled   = false;
       mostrar('erro', '❌ ' + e.message);
     })
     .enviarEmailDevolucao(params);
@@ -293,13 +430,14 @@ function enviar(forcado) {
 
 function mostrar(tipo, txt) {
   var el = document.getElementById('msg');
-  el.className = 'msg-' + tipo;
-  el.textContent = txt;
+  el.className    = 'msg-' + tipo;
+  el.textContent  = txt;
   el.style.display = 'block';
 }
 
 function esc(s) {
-  return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  return String(s==null?'':s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
 document.getElementById('nfds').focus();
