@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <base target="_top">
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:Arial,sans-serif;font-size:13px;background:#f4f6f9;padding:16px}
+    .titulo{background:#1565C0;color:#fff;text-align:center;padding:12px;border-radius:6px;font-size:15px;font-weight:bold;margin-bottom:12px}
+    .info{background:#E3F2FD;border-left:4px solid #1565C0;padding:9px 12px;border-radius:0 4px 4px 0;font-size:12px;color:#333;margin-bottom:12px;line-height:1.5}
+    label{display:block;font-weight:bold;color:#333;margin-bottom:4px}
+    textarea{width:100%;padding:8px;border:1px solid #ccc;border-radius:4px;font-size:13px;resize:vertical}
+    textarea:focus{outline:none;border-color:#1565C0}
+    .botoes{display:flex;gap:8px;margin-top:10px}
+    button{flex:1;padding:9px;border:none;border-radius:4px;font-size:13px;font-weight:bold;cursor:pointer}
+    #btnBuscar{background:#1565C0;color:#fff}
+    #btnBuscar:hover{background:#0D47A1}
+    #btnConfirmar{background:#C62828;color:#fff;display:none}
+    #btnConfirmar:hover{background:#B71C1C}
+    #btnCancelar{background:#e0e0e0;color:#333}
+    #btnCancelar:hover{background:#ccc}
+    #preview{margin-top:12px;display:none}
+    .preview-titulo{font-weight:bold;font-size:12px;color:#333;margin-bottom:6px}
+    table{width:100%;border-collapse:collapse;font-size:12px}
+    th{background:#1565C0;color:#fff;padding:6px 8px;text-align:left}
+    td{padding:5px 8px;border-bottom:1px solid #eee}
+    tr:nth-child(even) td{background:#F5F5F5}
+    .badge{display:inline-block;padding:2px 7px;border-radius:10px;font-size:11px;font-weight:bold}
+    .badge-dev{background:#E8F5E9;color:#2E7D32}
+    .badge-venda{background:#FFF3E0;color:#E65100}
+    .badge-pend{background:#E3F2FD;color:#1565C0}
+    #msg{margin-top:10px;padding:8px 10px;border-radius:4px;font-size:12px;display:none;white-space:pre-wrap}
+    .msg-ok{background:#E8F5E9;color:#2E7D32;border:1px solid #A5D6A7}
+    .msg-erro{background:#FFEBEE;color:#C62828;border:1px solid #EF9A9A}
+    .spinner{display:none;text-align:center;color:#666;margin-top:8px;font-size:12px}
+  </style>
+</head>
+<body>
+<div class="titulo">🔓 Reabrir Devoluções em Lote</div>
+<div class="info">
+  ℹ️ Informe os números das NFs a reabrir (vírgula ou uma por linha).<br>
+  Clique em <strong>Buscar</strong> para visualizar antes de confirmar.
+</div>
+
+<div style="margin-bottom:10px">
+  <label>Números das NFs</label>
+  <textarea id="nfs" rows="4" placeholder="Ex:&#10;123456&#10;789012&#10;ou: 123456, 789012"></textarea>
+</div>
+
+<div class="botoes">
+  <button id="btnBuscar"    onclick="buscar()">🔍 Buscar</button>
+  <button id="btnCancelar"  onclick="google.script.host.close()">✖ Cancelar</button>
+</div>
+
+<div id="preview">
+  <div class="preview-titulo">Resultado da busca — confirme antes de reabrir:</div>
+  <table><thead><tr><th>NF</th><th>Aba</th><th>Descrição</th><th>Status atual</th></tr></thead>
+  <tbody id="tabelaPreview"></tbody></table>
+  <div class="botoes" style="margin-top:10px">
+    <button id="btnConfirmar" onclick="confirmar()">🔓 Confirmar Reabertura</button>
+  </div>
+</div>
+
+<div class="spinner" id="spinner">⏳ Processando...</div>
+<div id="msg"></div>
+
+<script>
+var itensEncontrados = [];
+
+function buscar() {
+  var nfs = document.getElementById('nfs').value.trim();
+  if (!nfs) { mostrar('erro','❌ Informe ao menos uma NF.'); return; }
+  document.getElementById('preview').style.display = 'none';
+  document.getElementById('btnConfirmar').style.display = 'none';
+  document.getElementById('msg').style.display = 'none';
+  document.getElementById('spinner').style.display = 'block';
+
+  google.script.run
+    .withSuccessHandler(function(resp) {
+      document.getElementById('spinner').style.display = 'none';
+      var r = JSON.parse(resp);
+      if (r.erro) { mostrar('erro','❌ ' + r.erro); return; }
+      itensEncontrados = r.itens;
+      var tbody = document.getElementById('tabelaPreview');
+      tbody.innerHTML = '';
+      itensEncontrados.forEach(function(it) {
+        var badge = it.status === 'Devolvido'
+          ? '<span class="badge badge-dev">Devolvido</span>'
+          : it.status === 'Venda'
+            ? '<span class="badge badge-venda">Venda</span>'
+            : '<span class="badge badge-pend">Pendente</span>';
+        tbody.innerHTML += '<tr><td><b>' + it.nf + '</b></td><td>' + it.aba + '</td><td>' + it.desc + '</td><td>' + badge + '</td></tr>';
+      });
+      document.getElementById('preview').style.display = 'block';
+      document.getElementById('btnConfirmar').style.display = 'block';
+    })
+    .withFailureHandler(function(e) {
+      document.getElementById('spinner').style.display = 'none';
+      mostrar('erro','❌ ' + e.message);
+    })
+    .buscarNFsConcluidas(nfs);
+}
+
+function confirmar() {
+  if (!itensEncontrados.length) return;
+  document.getElementById('spinner').style.display = 'block';
+  document.getElementById('btnConfirmar').disabled = true;
+  // [P30] Passa itensEncontrados (com linha+aba) direto ao servidor
+  // evita que executarReabertura releia as 3 abas para localizar as mesmas NFs
+  google.script.run
+    .withSuccessHandler(function(resp) {
+      document.getElementById('spinner').style.display = 'none';
+      var r = JSON.parse(resp);
+      if (r.sucesso) {
+        mostrar('ok', r.sucesso);
+        document.getElementById('preview').style.display = 'none';
+        document.getElementById('nfs').value = '';
+        itensEncontrados = [];
+      } else {
+        mostrar('erro','❌ ' + r.erro);
+        document.getElementById('btnConfirmar').disabled = false;
+      }
+    })
+    .withFailureHandler(function(e) {
+      document.getElementById('spinner').style.display = 'none';
+      document.getElementById('btnConfirmar').disabled = false;
+      mostrar('erro','❌ ' + e.message);
+    })
+    .executarReaberturaPorItens(itensEncontrados);
+}
+
+function mostrar(tipo, texto) {
+  var el = document.getElementById('msg');
+  el.className = 'msg-' + tipo;
+  el.textContent = texto;
+  el.style.display = 'block';
+}
+</script>
+</body>
+</html>
