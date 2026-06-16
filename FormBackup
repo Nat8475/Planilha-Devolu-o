@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <base target="_top">
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:Arial,sans-serif;font-size:13px;background:#F0F2F5;padding:16px}
+
+    .titulo{background:#1A3557;color:#fff;padding:12px 16px;border-radius:6px;
+            font-size:14px;font-weight:bold;margin-bottom:14px}
+
+    /* Card de status do backup */
+    #cardBackup{border-radius:6px;padding:12px 14px;margin-bottom:14px;
+                border:1px solid #E5E7EB;background:#fff}
+    #cardBackup .label{font-size:10px;font-weight:bold;color:#9CA3AF;
+                       text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+    #cardBackup .data{font-size:13px;font-weight:bold;color:#1A3557;margin-bottom:6px}
+    #cardBackup .linhas{font-size:11px;color:#6B7280;line-height:1.7}
+    #cardBackup.sem-backup{background:#FFF7ED;border-color:#FCD34D}
+    #cardBackup.com-backup{background:#F0FDF4;border-color:#6EE7B7}
+
+    /* Passos */
+    .passos{background:#EFF6FF;border:1px solid #BFDBFE;border-radius:6px;
+            padding:11px 14px;margin-bottom:14px;font-size:12px;
+            color:#1E40AF;line-height:1.9}
+    .passos strong{display:block;margin-bottom:4px;font-size:12px;color:#1A3557}
+    .passo{display:flex;gap:8px;align-items:baseline}
+    .num{background:#2563EB;color:#fff;border-radius:50%;width:18px;height:18px;
+         display:inline-flex;align-items:center;justify-content:center;
+         font-size:10px;font-weight:bold;flex-shrink:0}
+
+    /* Botões */
+    .botoes{display:flex;flex-direction:column;gap:8px}
+    button{width:100%;padding:11px;border:none;border-radius:6px;font-size:13px;
+           font-weight:bold;cursor:pointer;text-align:left;display:flex;
+           align-items:center;gap:10px}
+    button:disabled{opacity:.5;cursor:not-allowed}
+    #btnBackup    {background:#1A3557;color:#fff}
+    #btnBackup:hover:not(:disabled){background:#243F63}
+    #btnRestaurar {background:#059669;color:#fff}
+    #btnRestaurar:hover:not(:disabled){background:#047857}
+    #btnFechar    {background:#E5E7EB;color:#374151;justify-content:center}
+    #btnFechar:hover{background:#D1D5DB}
+    .btn-icon{font-size:18px;flex-shrink:0}
+    .btn-txt{display:flex;flex-direction:column}
+    .btn-titulo{font-size:13px;font-weight:bold}
+    .btn-sub{font-size:10px;font-weight:normal;opacity:.8;margin-top:1px}
+
+    /* Mensagens */
+    #msg{margin-top:10px;padding:10px 12px;border-radius:6px;font-size:12px;
+         display:none;white-space:pre-wrap;line-height:1.6}
+    .msg-ok  {background:#ECFDF5;color:#065F46;border:1px solid #6EE7B7}
+    .msg-erro{background:#FEF2F2;color:#DC2626;border:1px solid #FECACA}
+    .spinner{display:none;text-align:center;color:#6B7280;margin-top:10px;font-size:12px}
+  </style>
+</head>
+<body>
+
+<div class="titulo">💾 Backup e Restauração</div>
+
+<!-- Status do backup existente -->
+<div id="cardBackup" class="sem-backup">
+  <div class="label">Último backup salvo</div>
+  <div class="data" id="dataBackup">⏳ Verificando...</div>
+  <div class="linhas" id="linhasBackup"></div>
+</div>
+
+<!-- Instruções -->
+<div class="passos">
+  <strong>Como usar ao reconfigurar o sistema:</strong>
+  <div class="passo"><span class="num">1</span><span>Clique em <b>Fazer Backup</b> agora para salvar todos os dados</span></div>
+  <div class="passo"><span class="num">2</span><span>Execute <b>Configurar/Reinstalar Sistema</b> normalmente</span></div>
+  <div class="passo"><span class="num">3</span><span>Volte aqui e clique em <b>Restaurar do Backup</b></span></div>
+</div>
+
+<!-- Botões -->
+<div class="botoes">
+  <button id="btnBackup" onclick="fazerBackup()">
+    <span class="btn-icon">💾</span>
+    <span class="btn-txt">
+      <span class="btn-titulo">Fazer Backup Agora</span>
+      <span class="btn-sub">Salva todos os dados das abas Britania, Unilever e Fornecedores Variados</span>
+    </span>
+  </button>
+
+  <button id="btnRestaurar" onclick="restaurar()" disabled>
+    <span class="btn-icon">🔄</span>
+    <span class="btn-txt">
+      <span class="btn-titulo">Restaurar do Backup</span>
+      <span class="btn-sub">Repõe os dados nas abas após a reconfiguração do sistema</span>
+    </span>
+  </button>
+
+  <button id="btnFechar" onclick="google.script.host.close()">✖ Fechar</button>
+</div>
+
+<div class="spinner" id="spinner">⏳ Processando, aguarde...</div>
+<div id="msg"></div>
+
+<script>
+// Carrega info do backup ao abrir
+google.script.run
+  .withSuccessHandler(function(resp) {
+    var r = JSON.parse(resp);
+    var card  = document.getElementById('cardBackup');
+    var data  = document.getElementById('dataBackup');
+    var linhas = document.getElementById('linhasBackup');
+
+    if (r.existe) {
+      card.className = 'com-backup';
+      data.textContent = r.data;
+      var txt = '';
+      Object.keys(r.contagem).forEach(function(aba) {
+        txt += '• ' + aba + ': ' + r.contagem[aba] + ' linha(s)\n';
+      });
+      linhas.textContent = txt.trim();
+      document.getElementById('btnRestaurar').disabled = false;
+    } else {
+      card.className = 'sem-backup';
+      data.textContent = 'Nenhum backup encontrado';
+      linhas.textContent = 'Faça um backup antes de reconfigurar o sistema.';
+    }
+  })
+  .withFailureHandler(function(e) {
+    document.getElementById('dataBackup').textContent = 'Erro ao verificar: ' + e.message;
+  })
+  .infoBackupExistente();
+
+function fazerBackup() {
+  if (!confirm('Salvar backup agora?\n\nUm backup anterior será substituído.')) return;
+  setBusy(true);
+  google.script.run
+    .withSuccessHandler(function(resp) {
+      setBusy(false);
+      var r = JSON.parse(resp);
+      if (r.sucesso) {
+        mostrar('ok', r.sucesso);
+        // Atualiza o card
+        document.getElementById('cardBackup').className = 'com-backup';
+        document.getElementById('dataBackup').textContent = r.data;
+        var txt = '';
+        Object.keys(r.contagem || {}).forEach(function(aba) {
+          txt += '• ' + aba + ': ' + r.contagem[aba] + ' linha(s)\n';
+        });
+        document.getElementById('linhasBackup').textContent = txt.trim();
+        document.getElementById('btnRestaurar').disabled = false;
+      } else {
+        mostrar('erro', r.erro);
+      }
+    })
+    .withFailureHandler(function(e) { setBusy(false); mostrar('erro', e.message); })
+    .executarBackup();
+}
+
+function restaurar() {
+  if (!confirm(
+    'Restaurar dados do backup nas abas?\n\n' +
+    '⚠️ Execute "Configurar/Reinstalar Sistema" ANTES de restaurar.\n\n' +
+    'As linhas do backup serão gravadas nas abas a partir da linha ' +
+    'de dados. Confirma?'
+  )) return;
+  setBusy(true);
+  google.script.run
+    .withSuccessHandler(function(resp) {
+      setBusy(false);
+      var r = JSON.parse(resp);
+      mostrar(r.sucesso ? 'ok' : 'erro', r.sucesso || r.erro);
+    })
+    .withFailureHandler(function(e) { setBusy(false); mostrar('erro', e.message); })
+    .executarRestauracao();
+}
+
+function setBusy(on) {
+  document.getElementById('spinner').style.display = on ? 'block' : 'none';
+  document.getElementById('btnBackup').disabled    = on;
+  document.getElementById('btnRestaurar').disabled = on;
+  document.getElementById('msg').style.display     = 'none';
+}
+
+function mostrar(tipo, txt) {
+  var el = document.getElementById('msg');
+  el.className = 'msg-' + tipo;
+  el.textContent = txt;
+  el.style.display = 'block';
+}
+</script>
+</body>
+</html>
