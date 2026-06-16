@@ -470,14 +470,12 @@ function carregarFornecedores() {
       var r = JSON.parse(resp);
       sel.innerHTML = '';
 
-      // Fixos: Britania e Unilever sempre primeiro
       ['Britania', 'Unilever'].forEach(function(nome) {
         var opt = document.createElement('option');
         opt.value = nome; opt.textContent = nome;
         sel.appendChild(opt);
       });
 
-      // Separador visual para os variados
       if (r.variados && r.variados.length) {
         var sep = document.createElement('option');
         sep.disabled = true;
@@ -491,7 +489,6 @@ function carregarFornecedores() {
         });
       }
 
-      // Opção "Todos"
       var sep2 = document.createElement('option');
       sep2.disabled = true; sep2.textContent = '──────────────────';
       sel.appendChild(sep2);
@@ -519,7 +516,7 @@ function carregarFornecedores() {
 
 // ── Gerar por Fornecedor ───────────────────────────────────
 function gerarFornecedor() {
-  var forn   = document.getElementById('f-forn').value;
+  var forn    = document.getElementById('f-forn').value;
   var dataIni = document.getElementById('f-ini').value;
   var dataFim = document.getElementById('f-fim').value;
   if (!dataIni || !dataFim) { mostrarMsg('f', 'erro', '❌ Informe data início e fim.'); return; }
@@ -529,12 +526,7 @@ function gerarFornecedor() {
   google.script.run
     .withSuccessHandler(function(r) { tratarResposta('f', r); })
     .withFailureHandler(function(e) { tratarErro('f', e); })
-    .gerarRelatorioPorFornecedor({
-      fornecedor: forn,
-      dataIni:    dataIni,
-      dataFim:    dataFim,
-      enviarEmail: document.getElementById('f-email').checked
-    });
+    .gerarRelatorioPorFornecedor({ fornecedor: forn, dataIni: dataIni, dataFim: dataFim, enviarEmail: document.getElementById('f-email').checked });
 }
 
 // ── Gerar Pendentes ────────────────────────────────────────
