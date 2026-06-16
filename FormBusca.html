@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <base target="_top">
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:Arial,sans-serif;font-size:13px;background:#F0F2F5;padding:14px;
+         display:flex;flex-direction:column;height:100vh;overflow:hidden}
+
+    .titulo{background:#1A3557;color:#fff;padding:11px 14px;border-radius:6px;
+            font-size:13px;font-weight:bold;margin-bottom:10px;flex-shrink:0}
+
+    /* Barra de busca */
+    .barra{display:flex;gap:8px;margin-bottom:8px;flex-shrink:0}
+    input[type=text]{flex:1;padding:9px 11px;border:1px solid #D1D5DB;
+      border-radius:5px;font-size:13px;background:#fff}
+    input[type=text]:focus{outline:none;border-color:#2563EB;
+      box-shadow:0 0 0 2px rgba(37,99,235,.15)}
+    button{padding:9px 15px;border:none;border-radius:5px;font-size:12px;
+           font-weight:bold;cursor:pointer;white-space:nowrap}
+    #btnBuscar{background:#2563EB;color:#fff}
+    #btnBuscar:hover{background:#1D4ED8}
+    #btnFechar{background:#E5E7EB;color:#374151}
+    #btnFechar:hover{background:#D1D5DB}
+
+    /* Mensagens */
+    #msg{font-size:12px;display:none;padding:7px 10px;
+         border-radius:5px;margin-bottom:8px;flex-shrink:0}
+    .msg-erro{background:#FEF2F2;color:#DC2626;border:1px solid #FECACA}
+
+    /* Área scrollável */
+    .area{flex:1;overflow:hidden;display:flex;flex-direction:column}
+    .contador{font-size:11px;color:#6B7280;margin-bottom:5px;flex-shrink:0}
+    .scroll{flex:1;overflow-y:auto;border:1px solid #E5E7EB;border-radius:5px;
+            background:#fff}
+    .spinner{display:none;text-align:center;color:#6B7280;padding:20px;font-size:12px}
+    .dica{font-size:10px;color:#9CA3AF;margin-top:5px;text-align:center;
+          font-style:italic;flex-shrink:0}
+
+    /* Tabela */
+    table{width:100%;border-collapse:collapse;font-size:11px}
+    thead th{background:#1A3557;color:#fff;padding:7px 8px;text-align:left;
+             position:sticky;top:0;z-index:1;font-size:10px;font-weight:bold}
+    tbody tr:hover td{background:#EFF6FF}
+    tbody tr.nav{cursor:pointer}
+    td{padding:5px 8px;border-bottom:1px solid #F3F4F6;vertical-align:middle}
+
+    /* Badges */
+    .badge{display:inline-block;padding:2px 7px;border-radius:10px;
+           font-size:10px;font-weight:bold;white-space:nowrap}
+    .b-p  {background:#EBF3FF;color:#2563EB}
+    .b-d  {background:#ECFDF5;color:#059669}
+    .b-v  {background:#FFF7ED;color:#D97706}
+    .b-at {background:#F0FDF4;color:#15803D;border:1px solid #BBF7D0}
+    .b-hi {background:#F5F3FF;color:#7C3AED;border:1px solid #DDD6FE}
+    .val  {text-align:right;font-family:monospace}
+  </style>
+</head>
+<body>
+
+<div class="titulo">🔍 Buscar NF / Fornecedor / Produto</div>
+
+<div class="barra">
+  <input type="text" id="termo"
+         placeholder="Digite NF, fornecedor ou descrição..."
+         onkeydown="if(event.key==='Enter')buscar()">
+  <button id="btnBuscar" onclick="buscar()">Buscar</button>
+  <button id="btnFechar" onclick="google.script.host.close()">✖</button>
+</div>
+
+<div id="msg"></div>
+
+<div class="area" id="area" style="display:none">
+  <div class="contador" id="contador"></div>
+  <div class="scroll">
+    <div class="spinner" id="spinner">⏳ Buscando...</div>
+    <table id="tabela" style="display:none">
+      <thead>
+        <tr>
+          <th></th>
+          <th>NF</th>
+          <th>Fornecedor</th>
+          <th>Descrição</th>
+          <th>Status</th>
+          <th>Data</th>
+          <th style="text-align:right">Valor</th>
+          <th>Arquivado em</th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+  <div class="dica">💡 Clique em itens ativos para navegar até a linha na planilha</div>
+</div>
+
+<script>
+var badges = {
+  'Pendente':  '<span class="badge b-p">Pendente</span>',
+  'Devolvido': '<span class="badge b-d">Devolvido</span>',
+  'Venda':     '<span class="badge b-v">Venda</span>'
+};
+
+function buscar() {
+  var termo = document.getElementById('termo').value.trim();
+  if (!termo) { erro('Digite um termo para buscar.'); return; }
+
+  document.getElementById('msg').style.display  = 'none';
+  document.getElementById('area').style.display = 'flex';
+  document.getElementById('spinner').style.display = 'block';
+  document.getElementById('tabela').style.display  = 'none';
+  document.getElementById('tbody').innerHTML = '';
+  document.getElementById('contador').textContent  = '';
+  document.getElementById('btnBuscar').disabled = true;
+
+  google.script.run
+    .withSuccessHandler(function(resp) {
+      document.getElementById('spinner').style.display = 'none';
+      document.getElementById('btnBuscar').disabled = false;
+      var r = JSON.parse(resp);
+      if (r.erro) { erro(r.erro); document.getElementById('area').style.display = 'none'; return; }
+      render(r.resultados);
+    })
+    .withFailureHandler(function(e) {
+      document.getElementById('spinner').style.display = 'none';
+      document.getElementById('btnBuscar').disabled = false;
+      erro(e.message);
+    })
+    .executarBusca(termo);
+}
+
+function render(lista) {
+  var tbody = document.getElementById('tbody');
+  tbody.innerHTML = '';
+
+  lista.forEach(function(it) {
+    var tr = document.createElement('tr');
+    var isAtivo = it.origem === 'ativo';
+    if (isAtivo) tr.className = 'nav';
+
+    var origemBadge = isAtivo
+      ? '<span class="badge b-at">Ativo</span>'
+      : '<span class="badge b-hi">Histórico</span>';
+
+    tr.innerHTML =
+      '<td>' + origemBadge + '</td>' +
+      '<td><b>' + esc(it.nf || it.nfd) + '</b></td>' +
+      '<td>' + esc(it.forn) + '</td>' +
+      '<td>' + esc(it.desc) + '</td>' +
+      '<td>' + (badges[it.status] || esc(it.status)) + '</td>' +
+      '<td style="white-space:nowrap">' + esc(it.data) + '</td>' +
+      '<td class="val">' + fmtVal(it.valor) + '</td>' +
+      '<td style="white-space:nowrap;color:#9CA3AF;font-size:10px">' + esc(it.dataArq) + '</td>';
+
+    if (isAtivo) {
+      (function(aba, linha) {
+        tr.onclick = function() { google.script.run.navegarParaLinha(aba, linha); };
+      })(it.aba, it.linha);
+    }
+
+    tbody.appendChild(tr);
+  });
+
+  document.getElementById('tabela').style.display = 'table';
+  document.getElementById('contador').textContent =
+    lista.length + ' resultado(s) — ativos e histórico';
+}
+
+function erro(txt) {
+  var el = document.getElementById('msg');
+  el.className = 'msg-erro';
+  el.textContent = '❌ ' + txt;
+  el.style.display = 'block';
+}
+
+function fmtVal(v) {
+  return v > 0 ? 'R$ ' + v.toFixed(2).replace('.', ',') : '—';
+}
+
+function esc(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+document.getElementById('termo').focus();
+</script>
+</body>
+</html>
