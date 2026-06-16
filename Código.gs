@@ -2733,11 +2733,12 @@ function verificarAtrasosEEnviarAlerta() {
 }
 
 function enviarEmail(assunto, htmlBody, anexos) {
-  if (!EMAILS_DESTINATARIOS || !EMAILS_DESTINATARIOS.length) return;
   try {
+    var destinatarios = _getEmailsGeral();
+    if (!destinatarios || !destinatarios.length) return;
     var opts = {
-      to:      EMAILS_DESTINATARIOS.join(','),
-      subject: assunto,
+      to:       destinatarios.join(','),
+      subject:  assunto,
       htmlBody: htmlBody
     };
     if (anexos && anexos.length) opts.attachments = anexos;
@@ -3444,6 +3445,169 @@ function gerarRelatorioPendentes(params) {
   });
 }
 
+// ════════════════════════════════════════════════════════════
+//   RELATÓRIO POR FORNECEDOR
+//   Adicionar no Código.gs logo após gerarRelatorioPendentes()
+//   (após a linha que fecha a função com `}` na linha ~3445)
+// ════════════════════════════════════════════════════════════
+
+/**
+ * Retorna lista de fornecedores presentes na aba "Fornecedores Variados".
+ * Chamada pelo FormRelatorios.html via google.script.run.listarFornecedoresVariados()
+ */
+function listarFornecedoresVariados() {
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var ws = ss.getSheetByName('Fornecedores Variados');
+
+    if (!ws) {
+      return JSON.stringify({ variados: [], erro: 'Aba "Fornecedores Variados" não encontrada.' });
+    }
+
+    var ul = obterUltimaLinhaDados(ws);
+    if (ul < LINHA_DADOS) {
+      return JSON.stringify({ variados: [] });
+    }
+
+    var valores = ws.getRange(LINHA_DADOS, COL_FORN, ul - LINHA_DADOS + 1, 1).getValues();
+    var vistos  = {};
+    var lista   = [];
+
+    valores.forEach(function(row) {
+      var nome = String(row[0] || '').trim();
+      if (nome && !vistos[nome]) {
+        vistos[nome] = true;
+        lista.push(nome);
+      }
+    });
+
+    lista.sort(function(a, b) { return a.localeCompare(b, 'pt-BR'); });
+
+    return JSON.stringify({ variados: lista });
+
+  } catch (e) {
+    return JSON.stringify({ variados: [], erro: e.toString() });
+  }
+}
+
+/**
+ * Gera relatório PDF filtrado por fornecedor específico (ou todos) e período.
+ * Chamada pelo FormRelatorios.html via google.script.run.gerarRelatorioPorFornecedor(params)
+ *
+ * params: {
+ *   fornecedor:   string — nome do fornecedor ou 'TODOS'
+ *   dataIni:      string — 'YYYY-MM-DD'
+ *   dataFim:      string — 'YYYY-MM-DD'
+ *   enviarEmail:  boolean
+ * }
+ */
+function gerarRelatorioPorFornecedor(params) {
+  if (!ID_PASTA_DESTINO || ID_PASTA_DESTINO.startsWith('INSIRA'))
+    return JSON.stringify({ erro: 'Configure ID_PASTA_DESTINO no topo do script.' });
+
+  var ss   = SpreadsheetApp.getActiveSpreadsheet();
+  var tz   = ss.getSpreadsheetTimeZone();
+  var enviarEmailFlag = !!params.enviarEmail;
+
+  var fornFiltro = String(params.fornecedor || '').trim();
+  if (!fornFiltro)
+    return JSON.stringify({ erro: 'Selecione um fornecedor.' });
+
+  var dataIni = _parseDateStr(params.dataIni);
+  var dataFim = _parseDateStr(params.dataFim, true);
+  if (!dataIni || !dataFim)
+    return JSON.stringify({ erro: 'Datas inválidas.' });
+
+  var periodoLabel = _fmtDt(dataIni, tz) + ' a ' + _fmtDt(dataFim, tz);
+  var titulo, nomeArq;
+
+  // Coleta todas as linhas do período
+  var todasLinhas = _coletarLinhas(ss, tz, dataIni, dataFim);
+
+  // Filtra por fornecedor (se não for TODOS)
+  var linhas;
+  if (fornFiltro === 'TODOS') {
+    linhas  = todasLinhas;
+    titulo  = 'RELATÓRIO DE DEVOLUÇÕES — TODOS OS FORNECEDORES';
+    nomeArq = 'Relatorio_Fornecedor_TODOS_' +
+              Utilities.formatDate(dataIni, tz, 'dd-MM-yyyy') + '_a_' +
+              Utilities.formatDate(dataFim, tz, 'dd-MM-yyyy') + '.pdf';
+  } else {
+    var fornLower = fornFiltro.toLowerCase();
+    linhas = todasLinhas.filter(function(l) {
+      return l.forn.toLowerCase() === fornLower;
+    });
+    titulo  = 'RELATÓRIO DE DEVOLUÇÕES — ' + fornFiltro.toUpperCase();
+    nomeArq = 'Relatorio_Fornecedor_' +
+              fornFiltro.replace(/[^a-zA-Z0-9]/g, '_') + '_' +
+              Utilities.formatDate(dataIni, tz, 'dd-MM-yyyy') + '_a_' +
+              Utilities.formatDate(dataFim, tz, 'dd-MM-yyyy') + '.pdf';
+  }
+
+  if (!linhas.length) {
+    var msg = fornFiltro === 'TODOS'
+      ? 'Nenhum lançamento encontrado para o período ' + periodoLabel + '.'
+      : 'Nenhum lançamento de "' + fornFiltro + '" encontrado para ' + periodoLabel + '.';
+    return JSON.stringify({ erro: msg });
+  }
+
+  var acc = _acumular(linhas);
+
+  var pdf;
+  try {
+    pdf = _gerarRelatorioPDF(ss, {
+      titulo:  titulo,
+      periodo: periodoLabel,
+      linhas:  linhas,
+      acc:     acc,
+      nomeArq: nomeArq
+    });
+  } catch (ePdf) {
+    registrarLog(ss, 'SISTEMA', 0, 0, '', '', '❌ Erro PDF fornecedor: ' + ePdf.toString());
+    return JSON.stringify({ erro: '❌ Erro ao gerar PDF: ' + ePdf.toString() });
+  }
+
+  if (!pdf)
+    return JSON.stringify({ erro: '❌ Erro ao gerar o PDF. Verifique o log do Apps Script.' });
+
+  if (enviarEmailFlag) {
+    try {
+      var htmlEmail = _montarHtmlRelatorio({
+        icone:    '🏭',
+        titulo:   'Relatório por Fornecedor — ' + (fornFiltro === 'TODOS' ? 'Todos' : fornFiltro),
+        subtitulo: periodoLabel,
+        intro:    'Segue em anexo o relatório de devoluções de <strong>' +
+                  (fornFiltro === 'TODOS' ? 'todos os fornecedores' : fornFiltro) +
+                  '</strong> referente ao período <strong>' + periodoLabel + '</strong>.',
+        kpis:     _kpisEmail(acc)
+      });
+      enviarEmail(
+        '🏭 Relatório por Fornecedor — ' +
+        (fornFiltro === 'TODOS' ? 'Todos' : fornFiltro) + ' — ' + periodoLabel,
+        htmlEmail,
+        [pdf.blob]
+      );
+      registrarLog(ss, 'SISTEMA', 0, 0, '', fornFiltro,
+        '🏭 Relatório por fornecedor gerado e enviado — ' + fornFiltro + ' — ' + periodoLabel);
+    } catch (eEmail) {
+      // PDF gerado com sucesso; apenas avisa falha no e-mail
+      return JSON.stringify({
+        sucesso: '✅ PDF gerado, mas falha ao enviar e-mail: ' + eEmail.message,
+        urlPdf: pdf.arquivo.getUrl()
+      });
+    }
+  } else {
+    registrarLog(ss, 'SISTEMA', 0, 0, '', fornFiltro,
+      '🏭 Relatório por fornecedor gerado — ' + fornFiltro + ' — ' + periodoLabel);
+  }
+
+  return JSON.stringify({
+    sucesso: '✅ Relatório de ' + (fornFiltro === 'TODOS' ? 'todos os fornecedores' : '"' + fornFiltro + '"') +
+             ' gerado!\n' + linhas.length + ' lançamento(s) — R$ ' + _fmtVal(acc.vTotal) +
+             (enviarEmailFlag ? '\n📧 Enviado por e-mail.' : ''),
+    urlPdf: pdf.arquivo.getUrl()
+  });
+}
 
 // ════════════════════════════════════════════════════════════
 //   BACKUP E RESTAURAÇÃO
