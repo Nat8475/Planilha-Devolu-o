@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <base target="_top">
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:Arial,sans-serif;font-size:13px;background:#F0F2F5;padding:16px}
+
+    .titulo{background:#1A3557;color:#fff;padding:13px 16px;border-radius:6px;
+            font-size:14px;font-weight:bold;margin-bottom:14px;display:flex;
+            align-items:center;gap:8px}
+    .titulo .back{cursor:pointer;background:rgba(255,255,255,.18);border:none;
+                  color:#fff;border-radius:4px;padding:3px 9px;font-size:12px;font-weight:bold}
+    .titulo .back:hover{background:rgba(255,255,255,.3)}
+
+    .sel-grid{display:flex;flex-direction:column;gap:10px;margin-bottom:14px}
+    .sel-card{display:flex;align-items:center;gap:14px;background:#fff;
+              border:2px solid #D1D5DB;border-radius:8px;padding:14px 16px;
+              cursor:pointer;transition:all .18s}
+    .sel-card:hover{border-color:#2563EB;background:#EFF6FF}
+    .sel-card .icone{font-size:26px;line-height:1}
+    .sel-card .txt strong{display:block;font-size:13px;color:#1A3557;margin-bottom:2px}
+    .sel-card .txt span{font-size:11px;color:#6B7280}
+
+    .screen{display:none}
+    .screen.ativo{display:block}
+
+    .info{background:#EFF6FF;border-left:4px solid #2563EB;padding:9px 12px;
+          border-radius:0 5px 5px 0;font-size:12px;color:#374151;
+          margin-bottom:14px;line-height:1.6}
+
+    .grupo{margin-bottom:12px}
+    label{display:block;font-weight:bold;color:#374151;margin-bottom:5px;font-size:12px}
+    select,input[type=number],input[type=date]{
+      width:100%;padding:8px 10px;border:1px solid #D1D5DB;border-radius:5px;
+      font-size:13px;background:#fff}
+    select:focus,input:focus{outline:none;border-color:#2563EB;
+      box-shadow:0 0 0 2px rgba(37,99,235,.15)}
+
+    .linha2{display:flex;gap:10px}
+    .linha2 .grupo{flex:1}
+
+    .opcao-email{display:flex;align-items:center;gap:8px;background:#fff;
+                 border:1px solid #D1D5DB;border-radius:5px;padding:10px 12px;
+                 font-size:12px;color:#374151;margin-bottom:12px;cursor:pointer}
+    .opcao-email input{accent-color:#2563EB;width:16px;height:16px;cursor:pointer}
+    .opcao-email span{line-height:1.4}
+
+    .botoes{display:flex;gap:8px}
+    button.btn-gerar{flex:1;padding:10px;border:none;border-radius:5px;font-size:13px;
+           font-weight:bold;cursor:pointer;background:#1A3557;color:#fff}
+    button.btn-gerar:hover{background:#243F63}
+    button.btn-gerar:disabled{opacity:.5;cursor:not-allowed}
+    button.btn-cancel{flex:1;padding:10px;border:none;border-radius:5px;font-size:13px;
+           font-weight:bold;cursor:pointer;background:#E5E7EB;color:#374151}
+    button.btn-cancel:hover{background:#D1D5DB}
+
+    .msg{margin-top:10px;padding:9px 12px;border-radius:5px;font-size:12px;
+         display:none;line-height:1.6}
+    .msg-ok  {background:#ECFDF5;color:#065F46;border:1px solid #6EE7B7}
+    .msg-erro{background:#FEF2F2;color:#DC2626;border:1px solid #FECACA}
+
+    .link-pdf{display:inline-block;margin-top:8px;background:#2563EB;color:#fff;
+              padding:6px 12px;border-radius:4px;text-decoration:none;
+              font-weight:bold;font-size:12px}
+    .spinner{display:none;text-align:center;color:#6B7280;margin-top:10px;font-size:12px}
+
+    .badge{font-size:10px;background:rgba(255,255,255,.22);border-radius:4px;
+           padding:2px 8px;font-weight:normal;letter-spacing:.3px}
+  </style>
+</head>
+<body>
+
+<!-- ════════════ TELA 0 — SELEÇÃO ════════════ -->
+<div id="screen-sel" class="screen ativo">
+  <div class="titulo">📊 Relatórios de Devoluções</div>
+
+  <div class="sel-grid">
+    <div class="sel-card" onclick="irPara('mensal')">
+      <span class="icone">📅</span>
+      <div class="txt">
+        <strong>Relatório Mensal</strong>
+        <span>KPIs, resumo por fornecedor e listagem do mês selecionado</span>
+      </div>
+    </div>
+    <div class="sel-card" onclick="irPara('semanal')">
+      <span class="icone">📆</span>
+      <div class="txt">
+        <strong>Relatório Semanal</strong>
+        <span>Dados dos últimos 7 dias ou semana específica</span>
+      </div>
+    </div>
+    <div class="sel-card" onclick="irPara('diario')">
+      <span class="icone">📋</span>
+      <div class="txt">
+        <strong>Relatório Diário</strong>
+        <span>Lançamentos de um dia específico</span>
+      </div>
+    </div>
+    <div class="sel-card" onclick="irPara('fornecedor')">
+      <span class="icone">🏭</span>
+      <div class="txt">
+        <strong>Relatório por Fornecedor</strong>
+        <span>Lançamentos de um fornecedor específico em um período</span>
+      </div>
+    </div>
+    <div class="sel-card" onclick="irPara('pendentes')">
+      <span class="icone">⏳</span>
+      <div class="txt">
+        <strong>Relatório de Pendências</strong>
+        <span>Snapshot de todos os itens Pendentes, ordenados do mais antigo</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="botoes">
+    <button class="btn-cancel" onclick="google.script.host.close()">✖ Fechar</button>
+  </div>
+</div>
+
+<!-- ════════════ TELA 1 — MENSAL ════════════ -->
+<div id="screen-mensal" class="screen">
+  <div class="titulo">
+    <button class="back" onclick="voltar()">← Voltar</button>
+    📅 Relatório Mensal <span class="badge">PDF</span>
+  </div>
+
+  <div class="info">
+    Selecione o <strong>mês</strong> e o <strong>ano</strong> para gerar o relatório consolidado com:<br>
+    • KPIs do período (pendentes, devolvidos, vendas, taxa de resolução)<br>
+    • Resumo por fornecedor<br>
+    • Listagem detalhada de todos os lançamentos
+  </div>
+
+  <div class="linha2">
+    <div class="grupo">
+      <label>Mês</label>
+      <select id="m-mes">
+        <option value="1">Janeiro</option><option value="2">Fevereiro</option>
+        <option value="3">Março</option><option value="4">Abril</option>
+        <option value="5">Maio</option><option value="6">Junho</option>
+        <option value="7">Julho</option><option value="8">Agosto</option>
+        <option value="9">Setembro</option><option value="10">Outubro</option>
+        <option value="11">Novembro</option><option value="12">Dezembro</option>
+      </select>
+    </div>
+    <div class="grupo">
+      <label>Ano</label>
+      <input type="number" id="m-ano" min="2020" max="2099">
+    </div>
+  </div>
+
+  <label class="opcao-email">
+    <input type="checkbox" id="m-email">
+    <span>
+      <strong>Enviar por e-mail após gerar</strong><br>
+      O PDF será enviado como anexo para os destinatários configurados.
+    </span>
+  </label>
+
+  <div class="botoes">
+    <button class="btn-gerar" id="m-btn" onclick="gerarMensal()">📅 Gerar Relatório Mensal</button>
+    <button class="btn-cancel" onclick="google.script.host.close()">✖ Cancelar</button>
+  </div>
+  <div class="spinner" id="m-spin">⏳ Gerando relatório, aguarde...</div>
+  <div class="msg" id="msg-m"></div>
+</div>
+
+<!-- ════════════ TELA 2 — SEMANAL ════════════ -->
+<div id="screen-semanal" class="screen">
+  <div class="titulo">
+    <button class="back" onclick="voltar()">← Voltar</button>
+    📆 Relatório Semanal <span class="badge">PDF</span>
+  </div>
+
+  <div class="info">
+    Selecione o <strong>período semanal</strong> desejado:<br>
+    • KPIs da semana (pendentes, devolvidos, vendas, taxa de resolução)<br>
+    • Resumo por fornecedor<br>
+    • Listagem detalhada de todos os lançamentos da semana
+  </div>
+
+  <div class="grupo">
+    <label>Período</label>
+    <select id="s-modo" onchange="atualizarCamposSemanal()">
+      <option value="ultimos7">Últimos 7 dias (até hoje)</option>
+      <option value="semana_corrente">Semana corrente (seg–dom)</option>
+      <option value="semana_anterior">Semana anterior</option>
+      <option value="personalizado">Período personalizado</option>
+    </select>
+  </div>
+
+  <div id="s-datas" style="display:none">
+    <div class="linha2">
+      <div class="grupo">
+        <label>Data início</label>
+        <input type="date" id="s-ini">
+      </div>
+      <div class="grupo">
+        <label>Data fim</label>
+        <input type="date" id="s-fim">
+      </div>
+    </div>
+  </div>
+
+  <label class="opcao-email">
+    <input type="checkbox" id="s-email">
+    <span>
+      <strong>Enviar por e-mail após gerar</strong><br>
+      O PDF será enviado como anexo para os destinatários configurados.
+    </span>
+  </label>
+
+  <div class="botoes">
+    <button class="btn-gerar" id="s-btn" onclick="gerarSemanal()">📆 Gerar Relatório Semanal</button>
+    <button class="btn-cancel" onclick="google.script.host.close()">✖ Cancelar</button>
+  </div>
+  <div class="spinner" id="s-spin">⏳ Gerando relatório, aguarde...</div>
+  <div class="msg" id="msg-s"></div>
+</div>
+
+<!-- ════════════ TELA 3 — DIÁRIO ════════════ -->
+<div id="screen-diario" class="screen">
+  <div class="titulo">
+    <button class="back" onclick="voltar()">← Voltar</button>
+    📋 Relatório Diário <span class="badge">PDF</span>
+  </div>
+
+  <div class="info">
+    Selecione a <strong>data</strong> para gerar o relatório do dia com:<br>
+    • KPIs do dia (pendentes, devolvidos, vendas, taxa de resolução)<br>
+    • Resumo por fornecedor<br>
+    • Listagem detalhada de todos os lançamentos do dia
+  </div>
+
+  <div class="grupo">
+    <label>Data</label>
+    <input type="date" id="d-data">
+  </div>
+
+  <label class="opcao-email">
+    <input type="checkbox" id="d-email">
+    <span>
+      <strong>Enviar por e-mail após gerar</strong><br>
+      O PDF será enviado como anexo para os destinatários configurados.
+    </span>
+  </label>
+
+  <div class="botoes">
+    <button class="btn-gerar" id="d-btn" onclick="gerarDiario()">📋 Gerar Relatório Diário</button>
+    <button class="btn-cancel" onclick="google.script.host.close()">✖ Cancelar</button>
+  </div>
+  <div class="spinner" id="d-spin">⏳ Gerando relatório, aguarde...</div>
+  <div class="msg" id="msg-d"></div>
+</div>
+
+<!-- ════════════ TELA 4 — POR FORNECEDOR ════════════ -->
+<div id="screen-fornecedor" class="screen">
+  <div class="titulo">
+    <button class="back" onclick="voltar()">← Voltar</button>
+    🏭 Relatório por Fornecedor <span class="badge">PDF</span>
+  </div>
+
+  <div class="info">
+    Gera um relatório filtrado por <strong>fornecedor específico</strong> e período:<br>
+    • KPIs do fornecedor (pendentes, devolvidos, vendas, taxa de resolução)<br>
+    • Listagem detalhada apenas daquele fornecedor
+  </div>
+
+  <div class="grupo">
+    <label>Fornecedor</label>
+    <select id="f-forn">
+      <option value="">⏳ Carregando fornecedores...</option>
+    </select>
+    <div id="f-forn-erro" style="font-size:11px;color:#DC2626;margin-top:4px;display:none"></div>
+  </div>
+
+  <div class="linha2">
+    <div class="grupo">
+      <label>Data início</label>
+      <input type="date" id="f-ini">
+    </div>
+    <div class="grupo">
+      <label>Data fim</label>
+      <input type="date" id="f-fim">
+    </div>
+  </div>
+
+  <label class="opcao-email">
+    <input type="checkbox" id="f-email">
+    <span>
+      <strong>Enviar por e-mail após gerar</strong><br>
+      O PDF será enviado como anexo para os destinatários configurados.
+    </span>
+  </label>
+
+  <div class="botoes">
+    <button class="btn-gerar" id="f-btn" onclick="gerarFornecedor()">🏭 Gerar Relatório por Fornecedor</button>
+    <button class="btn-cancel" onclick="google.script.host.close()">✖ Cancelar</button>
+  </div>
+  <div class="spinner" id="f-spin">⏳ Gerando relatório, aguarde...</div>
+  <div class="msg" id="msg-f"></div>
+</div>
+
+<!-- ════════════ TELA 5 — PENDENTES ════════════ -->
+<div id="screen-pendentes" class="screen">
+  <div class="titulo">
+    <button class="back" onclick="voltar()">← Voltar</button>
+    ⏳ Relatório de Pendências <span class="badge">PDF</span>
+  </div>
+
+  <div class="info">
+    Gera um <strong>snapshot</strong> de todos os itens atualmente com status <strong>Pendente</strong>, ordenados do mais antigo para o mais recente.<br>
+    • Inclui coluna de dias em aberto<br>
+    • Útil para reuniões de cobrança com fornecedores
+  </div>
+
+  <label class="opcao-email">
+    <input type="checkbox" id="p-email">
+    <span>
+      <strong>Enviar por e-mail após gerar</strong><br>
+      O PDF será enviado como anexo para os destinatários configurados.
+    </span>
+  </label>
+
+  <div class="botoes">
+    <button class="btn-gerar" id="p-btn" onclick="gerarPendentes()">⏳ Gerar Relatório de Pendências</button>
+    <button class="btn-cancel" onclick="google.script.host.close()">✖ Cancelar</button>
+  </div>
+  <div class="spinner" id="p-spin">⏳ Gerando relatório, aguarde...</div>
+  <div class="msg" id="msg-p"></div>
+</div>
+
+<script>
+// ── Navegação ──────────────────────────────────────────────
+var telaAtual = 'sel';
+
+function irPara(tipo) {
+  document.getElementById('screen-sel').classList.remove('ativo');
+  document.getElementById('screen-' + tipo).classList.add('ativo');
+  telaAtual = tipo;
+  ['m','s','d','f','p'].forEach(function(p) {
+    var el = document.getElementById('msg-' + p);
+    if (el) { el.style.display = 'none'; el.innerHTML = ''; }
+  });
+  if (tipo === 'fornecedor') carregarFornecedores();
+}
+
+function voltar() {
+  document.getElementById('screen-' + telaAtual).classList.remove('ativo');
+  document.getElementById('screen-sel').classList.add('ativo');
+  telaAtual = 'sel';
+}
+
+// ── Inicialização ──────────────────────────────────────────
+(function() {
+  var hoje = new Date();
+
+  // Mensal
+  document.getElementById('m-mes').value = hoje.getMonth() + 1;
+  document.getElementById('m-ano').value = hoje.getFullYear();
+
+  // Diário
+  document.getElementById('d-data').value = hoje.toISOString().slice(0, 10);
+
+  // Semanal personalizado — padrão = semana corrente
+  var seg = new Date(hoje);
+  seg.setDate(hoje.getDate() - ((hoje.getDay() + 6) % 7));
+  var dom = new Date(seg);
+  dom.setDate(seg.getDate() + 6);
+  document.getElementById('s-ini').value = seg.toISOString().slice(0, 10);
+  document.getElementById('s-fim').value = dom.toISOString().slice(0, 10);
+
+  // Fornecedor — padrão = ano corrente
+  var iniAno = new Date(hoje.getFullYear(), 0, 1);
+  document.getElementById('f-ini').value = iniAno.toISOString().slice(0, 10);
+  document.getElementById('f-fim').value = hoje.toISOString().slice(0, 10);
+})();
+
+function atualizarCamposSemanal() {
+  var modo = document.getElementById('s-modo').value;
+  document.getElementById('s-datas').style.display = (modo === 'personalizado') ? 'block' : 'none';
+}
+
+// ── Helpers UI ─────────────────────────────────────────────
+function setLoading(prefixo, sim) {
+  document.getElementById(prefixo + '-spin').style.display = sim ? 'block' : 'none';
+  document.getElementById(prefixo + '-btn').disabled = sim;
+}
+
+function mostrarMsg(prefixo, tipo, html) {
+  var el = document.getElementById('msg-' + prefixo);
+  el.className = 'msg msg-' + tipo;
+  el.innerHTML = html;
+  el.style.display = 'block';
+}
+
+function tratarResposta(prefixo, resp) {
+  setLoading(prefixo, false);
+  var r = JSON.parse(resp);
+  if (r.sucesso) {
+    var html = r.sucesso.replace(/\n/g, '<br>');
+    if (r.urlPdf) html += '<br><a class="link-pdf" href="' + r.urlPdf + '" target="_blank">📥 Abrir PDF no Drive</a>';
+    mostrarMsg(prefixo, 'ok', html);
+  } else {
+    mostrarMsg(prefixo, 'erro', '❌ ' + (r.erro || 'Erro desconhecido.'));
+  }
+}
+
+function tratarErro(prefixo, e) {
+  setLoading(prefixo, false);
+  mostrarMsg(prefixo, 'erro', '❌ ' + e.message);
+}
+
+// ── Gerar Mensal ───────────────────────────────────────────
+function gerarMensal() {
+  var mes = parseInt(document.getElementById('m-mes').value, 10);
+  var ano = parseInt(document.getElementById('m-ano').value, 10);
+  if (!ano || ano < 2020 || ano > 2099) { mostrarMsg('m', 'erro', '❌ Informe um ano válido (2020–2099).'); return; }
+  setLoading('m', true);
+  document.getElementById('msg-m').style.display = 'none';
+  google.script.run
+    .withSuccessHandler(function(r) { tratarResposta('m', r); })
+    .withFailureHandler(function(e) { tratarErro('m', e); })
+    .gerarRelatorioMensal({ mes: mes, ano: ano, enviarEmail: document.getElementById('m-email').checked });
+}
+
+// ── Gerar Semanal ──────────────────────────────────────────
+function gerarSemanal() {
+  var modo = document.getElementById('s-modo').value;
+  var params = { modo: modo, enviarEmail: document.getElementById('s-email').checked };
+  if (modo === 'personalizado') {
+    params.dataIni = document.getElementById('s-ini').value;
+    params.dataFim = document.getElementById('s-fim').value;
+    if (!params.dataIni || !params.dataFim) { mostrarMsg('s', 'erro', '❌ Informe data início e fim.'); return; }
+    if (params.dataIni > params.dataFim) { mostrarMsg('s', 'erro', '❌ Data início não pode ser maior que data fim.'); return; }
+  }
+  setLoading('s', true);
+  document.getElementById('msg-s').style.display = 'none';
+  google.script.run
+    .withSuccessHandler(function(r) { tratarResposta('s', r); })
+    .withFailureHandler(function(e) { tratarErro('s', e); })
+    .gerarRelatorioSemanal(params);
+}
+
+// ── Gerar Diário ───────────────────────────────────────────
+function gerarDiario() {
+  var data = document.getElementById('d-data').value;
+  if (!data) { mostrarMsg('d', 'erro', '❌ Selecione uma data.'); return; }
+  setLoading('d', true);
+  document.getElementById('msg-d').style.display = 'none';
+  google.script.run
+    .withSuccessHandler(function(r) { tratarResposta('d', r); })
+    .withFailureHandler(function(e) { tratarErro('d', e); })
+    .gerarRelatorioDiario({ data: data, enviarEmail: document.getElementById('d-email').checked });
+}
+
+// ── Carregar fornecedores dinamicamente ────────────────────
+var _fornCarregado = false;
+
+function carregarFornecedores() {
+  if (_fornCarregado) return;
+  var sel = document.getElementById('f-forn');
+  sel.disabled = true;
+  sel.innerHTML = '<option value="">⏳ Carregando...</option>';
+
+  google.script.run
+    .withSuccessHandler(function(resp) {
+      var r = JSON.parse(resp);
+      sel.innerHTML = '';
+
+      // Fixos: Britania e Unilever sempre primeiro
+      ['Britania', 'Unilever'].forEach(function(nome) {
+        var opt = document.createElement('option');
+        opt.value = nome; opt.textContent = nome;
+        sel.appendChild(opt);
+      });
+
+      // Separador visual para os variados
+      if (r.variados && r.variados.length) {
+        var sep = document.createElement('option');
+        sep.disabled = true;
+        sep.textContent = '── Fornecedores Variados ──';
+        sel.appendChild(sep);
+
+        r.variados.forEach(function(nome) {
+          var opt = document.createElement('option');
+          opt.value = nome; opt.textContent = nome;
+          sel.appendChild(opt);
+        });
+      }
+
+      // Opção "Todos"
+      var sep2 = document.createElement('option');
+      sep2.disabled = true; sep2.textContent = '──────────────────';
+      sel.appendChild(sep2);
+
+      var todos = document.createElement('option');
+      todos.value = 'TODOS'; todos.textContent = '📊 Todos os fornecedores';
+      sel.appendChild(todos);
+
+      sel.disabled = false;
+      _fornCarregado = true;
+
+      if (r.erro) {
+        document.getElementById('f-forn-erro').textContent = '⚠️ ' + r.erro;
+        document.getElementById('f-forn-erro').style.display = 'block';
+      }
+    })
+    .withFailureHandler(function(e) {
+      sel.innerHTML = '<option value="">Erro ao carregar</option>';
+      sel.disabled = false;
+      document.getElementById('f-forn-erro').textContent = '❌ ' + e.message;
+      document.getElementById('f-forn-erro').style.display = 'block';
+    })
+    .listarFornecedoresVariados();
+}
+
+// ── Gerar por Fornecedor ───────────────────────────────────
+function gerarFornecedor() {
+  var forn   = document.getElementById('f-forn').value;
+  var dataIni = document.getElementById('f-ini').value;
+  var dataFim = document.getElementById('f-fim').value;
+  if (!dataIni || !dataFim) { mostrarMsg('f', 'erro', '❌ Informe data início e fim.'); return; }
+  if (dataIni > dataFim)    { mostrarMsg('f', 'erro', '❌ Data início não pode ser maior que data fim.'); return; }
+  setLoading('f', true);
+  document.getElementById('msg-f').style.display = 'none';
+  google.script.run
+    .withSuccessHandler(function(r) { tratarResposta('f', r); })
+    .withFailureHandler(function(e) { tratarErro('f', e); })
+    .gerarRelatorioPorFornecedor({
+      fornecedor: forn,
+      dataIni:    dataIni,
+      dataFim:    dataFim,
+      enviarEmail: document.getElementById('f-email').checked
+    });
+}
+
+// ── Gerar Pendentes ────────────────────────────────────────
+function gerarPendentes() {
+  setLoading('p', true);
+  document.getElementById('msg-p').style.display = 'none';
+  google.script.run
+    .withSuccessHandler(function(r) { tratarResposta('p', r); })
+    .withFailureHandler(function(e) { tratarErro('p', e); })
+    .gerarRelatorioPendentes({ enviarEmail: document.getElementById('p-email').checked });
+}
+</script>
+</body>
+</html>
