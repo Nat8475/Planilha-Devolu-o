@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <base target="_top">
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:Arial,sans-serif;font-size:13px;background:#f4f6f9;padding:14px}
+    .titulo{background:#1565C0;color:#fff;text-align:center;padding:12px;border-radius:6px;
+            font-size:15px;font-weight:bold;margin-bottom:12px}
+    .secao{background:#E3F2FD;border-left:3px solid #1565C0;padding:7px 10px;
+           border-radius:0 4px 4px 0;margin-bottom:9px;font-size:11px;
+           font-weight:bold;color:#1565C0;letter-spacing:.3px}
+    .campo{margin-bottom:9px}
+    label{display:block;font-weight:bold;color:#333;margin-bottom:3px;font-size:12px}
+    input[type=text],textarea{width:100%;padding:7px 9px;border:1px solid #ccc;
+      border-radius:4px;font-size:13px}
+    input:focus,textarea:focus{outline:none;border-color:#1565C0;
+      box-shadow:0 0 0 2px rgba(21,101,192,.15)}
+    .linha2{display:flex;gap:8px}
+    .linha2 .campo{flex:1}
+
+    /* Aviso de e-mail já enviado */
+    #aviso-duplicado{display:none;background:#FFF3E0;border:1px solid #FFB74D;
+                     border-radius:5px;padding:10px 12px;margin-bottom:10px;
+                     font-size:12px;color:#E65100;line-height:1.5}
+    #aviso-duplicado strong{color:#BF360C}
+    #btn-confirmar-envio{display:none;width:100%;padding:9px;border:none;border-radius:4px;
+                         font-size:13px;font-weight:bold;cursor:pointer;
+                         background:#E65100;color:#fff;margin-bottom:8px}
+    #btn-confirmar-envio:hover{background:#BF360C}
+
+    /* Preview */
+    #preview{display:none;margin-bottom:10px}
+    .prev-header{background:#2D5F8A;color:#fff;padding:8px 12px;border-radius:4px 4px 0 0;
+                 font-size:12px;font-weight:bold}
+    .prev-assunto{background:#EEF4FB;border:1px solid #B0C4DE;border-top:none;
+                  padding:7px 12px;font-size:12px;color:#333}
+    .prev-assunto strong{color:#1565C0}
+    table{width:100%;border-collapse:collapse;font-size:11px;
+          border:1px solid #ddd;border-top:none}
+    th{background:#F0F4F8;padding:6px 8px;text-align:left;border-bottom:1px solid #ccc;color:#333}
+    td{padding:5px 8px;border-bottom:1px solid #f0f0f0}
+    .badge-f{background:#E3F2FD;color:#1565C0;padding:2px 6px;border-radius:10px;
+             font-size:10px;font-weight:bold}
+    .badge-a{background:#FFF3E0;color:#E65100;padding:2px 6px;border-radius:10px;
+             font-size:10px;font-weight:bold}
+    .badge-r{background:#FEF2F2;color:#DC2626;padding:2px 6px;border-radius:10px;
+             font-size:10px;font-weight:bold}
+    .total-row td{background:#F9F9F9;font-weight:bold}
+
+    .emails-base{background:#F9FBE7;border:1px solid #DCE775;border-radius:4px;
+                 padding:7px 10px;font-size:11px;color:#555;margin-bottom:9px}
+    .emails-base strong{color:#333}
+
+    .botoes{display:flex;gap:8px;margin-top:12px}
+    button{flex:1;padding:9px;border:none;border-radius:4px;font-size:13px;font-weight:bold;cursor:pointer}
+    #btnPreview{background:#1565C0;color:#fff}
+    #btnPreview:hover{background:#0D47A1}
+    #btnPreview:disabled{opacity:.5;cursor:not-allowed}
+    #btnEnviar{background:#2E7D32;color:#fff;display:none}
+    #btnEnviar:hover{background:#1B5E20}
+    #btnEnviar:disabled{opacity:.5;cursor:not-allowed}
+    #btnCancelar{background:#e0e0e0;color:#333}
+    #btnCancelar:hover{background:#ccc}
+
+    #msg{margin-top:9px;padding:8px 10px;border-radius:4px;font-size:12px;
+         display:none;white-space:pre-wrap;line-height:1.5}
+    .msg-ok  {background:#e8f5e9;color:#2e7d32;border:1px solid #a5d6a7}
+    .msg-erro{background:#ffebee;color:#c62828;border:1px solid #ef9a9a}
+    .msg-aviso{background:#fff8e1;color:#f57f17;border:1px solid #ffe082}
+    .spinner{display:none;text-align:center;color:#666;margin-top:8px;font-size:12px}
+  </style>
+</head>
+<body>
+<div class="titulo">📨 Enviar E-mail de Devolução</div>
+
+<div class="secao">📋 NFDs</div>
+<div class="campo">
+  <label>Números das NFDs</label>
+  <textarea id="nfds" rows="3" placeholder="Ex:&#10;NFD001&#10;NFD002&#10;ou: NFD001, NFD002"></textarea>
+</div>
+
+<div class="secao">📧 DESTINATÁRIOS</div>
+<div id="emailsBase" class="emails-base">
+  <strong>E-mails padrão (sempre incluídos):</strong> <em>serão exibidos após buscar as NFDs</em>
+</div>
+<div class="campo">
+  <label>E-mails adicionais <span style="font-weight:normal;color:#888">(opcional)</span></label>
+  <input type="text" id="emailsExtras" placeholder="ex@email.com; outro@email.com">
+</div>
+
+<div class="secao">✏️ COMPLEMENTO</div>
+<div class="campo">
+  <label>Assunto do e-mail <span style="font-weight:normal;color:#888">(gerado automaticamente, pode editar)</span></label>
+  <input type="text" id="assunto" placeholder="Gerado após buscar as NFDs...">
+</div>
+<div class="campo">
+  <label>Observações <span style="font-weight:normal;color:#888">(opcional)</span></label>
+  <textarea id="obs" rows="2" placeholder="Observações adicionais que aparecerão no e-mail..."></textarea>
+</div>
+
+<div class="botoes">
+  <button id="btnPreview" onclick="buscarPreview()">🔍 Buscar e Pré-visualizar</button>
+  <button id="btnCancelar" onclick="google.script.host.close()">✖ Cancelar</button>
+</div>
+
+<!-- ═══ AVISO DE E-MAIL JÁ ENVIADO (item 31) ═══ -->
+<div id="aviso-duplicado"></div>
+<button id="btn-confirmar-envio" onclick="enviar(true)">
+  ⚠️ E-mail já enviado — Confirmar e Enviar mesmo assim
+</button>
+
+<!-- Preview -->
+<div id="preview">
+  <div class="prev-header">📋 Pré-visualização — confira antes de enviar</div>
+  <div class="prev-assunto" id="prevAssunto"></div>
+  <table>
+    <thead>
+      <tr>
+        <th>NFD</th><th>Tipo</th><th>Motivo</th><th>Nº NF</th>
+        <th>Descrição</th><th style="text-align:center">Qtd</th>
+        <th style="text-align:right">Valor</th><th style="text-align:center">Data</th>
+      </tr>
+    </thead>
+    <tbody id="prevTabela"></tbody>
+    <tfoot><tr class="total-row" id="prevTotal"></tr></tfoot>
+  </table>
+  <div class="botoes" style="margin-top:10px">
+    <button id="btnEnviar" onclick="enviar(false)">📨 Confirmar e Enviar</button>
+  </div>
+</div>
+
+<div class="spinner" id="spinner">⏳ Processando...</div>
+<div id="msg"></div>
+
+<script>
+var _dadosPreview = null;
+var _jaEnviadas   = [];   // NFDs que já tiveram e-mail enviado
+
+function buscarPreview() {
+  var nfds = document.getElementById('nfds').value.trim();
+  if (!nfds) { mostrar('erro', '❌ Informe ao menos uma NFD.'); return; }
+
+  document.getElementById('preview').style.display = 'none';
+  document.getElementById('btnEnviar').style.display = 'none';
+  document.getElementById('aviso-duplicado').style.display = 'none';
+  document.getElementById('btn-confirmar-envio').style.display = 'none';
+  document.getElementById('msg').style.display = 'none';
+  document.getElementById('spinner').style.display = 'block';
+  document.getElementById('btnPreview').disabled = true;
+
+  google.script.run
+    .withSuccessHandler(function(respCheck) {
+      try {
+        var check = JSON.parse(respCheck);
+        _jaEnviadas = check.jaEnviadas || [];
+      } catch(_) {
+        _jaEnviadas = [];
+      }
+      buscarPreviewDireto();
+    })
+    .withFailureHandler(function() {
+      _jaEnviadas = [];
+      buscarPreviewDireto();
+    })
+    .verificarEmailsJaEnviados(nfds);
+}
+
+function buscarPreviewDireto() {
+  var nfds = document.getElementById('nfds').value.trim();
+
+  google.script.run
+    .withSuccessHandler(function(resp) {
+      document.getElementById('spinner').style.display = 'none';
+      document.getElementById('btnPreview').disabled = false;
+      var r = JSON.parse(resp);
+      if (r.erro) { mostrar('erro', '❌ ' + r.erro); return; }
+
+      _dadosPreview = r;
+
+      if (r.emailsBase) {
+        document.getElementById('emailsBase').innerHTML =
+          '<strong>E-mails padrão (sempre incluídos):</strong> ' + r.emailsBase.join(', ');
+      }
+      if (!document.getElementById('assunto').value) {
+        document.getElementById('assunto').value = r.titulo;
+      }
+
+      var tbody = document.getElementById('prevTabela');
+      tbody.innerHTML = '';
+      var total = 0;
+      r.itens.forEach(function(it) {
+        var badge = it.tipo === 'Avaria'   ? '<span class="badge-a">Avaria</span>'
+                  : it.tipo === 'Falta'    ? '<span class="badge-f">Falta</span>'
+                  : it.tipo === 'Rejeição' ? '<span class="badge-r">Rejeição</span>'
+                  : it.tipo || '—';
+        var val = it.valor > 0 ? 'R$ ' + it.valor.toFixed(2).replace('.',',') : '—';
+        total += it.valor;
+        var anexoIcon = it.urlAnexo ? ' <span title="Arquivo anexado" style="color:#2E7D32">📎</span>' : '';
+        tbody.innerHTML +=
+          '<tr><td><b>' + esc(it.nfd) + '</b>' + anexoIcon + '</td>' +
+          '<td>' + badge + '</td>' +
+          '<td style="color:#555;font-size:11px">' + esc((it.motivo||'—').substring(0,35)) + '</td>' +
+          '<td>' + esc(it.nf) + '</td>' +
+          '<td>' + esc(it.desc.substring(0,35)) + '</td>' +
+          '<td style="text-align:center">' + it.qtd + '</td>' +
+          '<td style="text-align:right">' + val + '</td>' +
+          '<td style="text-align:center">' + esc(it.data) + '</td></tr>';
+      });
+
+      document.getElementById('prevTotal').innerHTML =
+        '<td colspan="6" style="text-align:right;padding:6px 8px">TOTAL:</td>' +
+        '<td style="text-align:right;padding:6px 8px;color:#2D5F8A">R$ ' +
+        total.toFixed(2).replace('.',',') + '</td><td></td>';
+
+      document.getElementById('prevAssunto').innerHTML =
+        '<strong>Assunto:</strong> ' + esc(document.getElementById('assunto').value || r.titulo) +
+        ' &nbsp;|&nbsp; <strong>Fornecedor:</strong> ' + esc(r.forn) +
+        ' &nbsp;|&nbsp; <strong>' + r.itens.length + ' NFD(s)</strong>';
+
+      document.getElementById('preview').style.display = 'block';
+
+      if (_jaEnviadas.length > 0) {
+        var avisoEl = document.getElementById('aviso-duplicado');
+        var linhas  = _jaEnviadas.map(function(j) {
+          return '• <strong>' + esc(j.nfd) + '</strong>: já enviada ' + j.total +
+                 ' vez(es) — último envio em <strong>' + esc(j.data) + '</strong>';
+        });
+        avisoEl.innerHTML =
+          '⚠️ <strong>Atenção: e-mail já enviado para as seguintes NFDs:</strong><br>' +
+          linhas.join('<br>') +
+          '<br><br>Deseja enviar novamente mesmo assim?';
+        avisoEl.style.display = 'block';
+        document.getElementById('btnEnviar').style.display = 'none';
+        document.getElementById('btn-confirmar-envio').style.display = 'block';
+      } else {
+        document.getElementById('btnEnviar').style.display = 'block';
+        document.getElementById('btn-confirmar-envio').style.display = 'none';
+        document.getElementById('aviso-duplicado').style.display = 'none';
+      }
+    })
+    .withFailureHandler(function(e) {
+      document.getElementById('spinner').style.display = 'none';
+      document.getElementById('btnPreview').disabled = false;
+      mostrar('erro', '❌ ' + e.message);
+    })
+    .buscarDadosNFDs(nfds);
+}
+function enviar(forcado) {
+  document.getElementById('btnEnviar').disabled = true;
+  document.getElementById('btn-confirmar-envio').disabled = true;
+  document.getElementById('spinner').style.display = 'block';
+  document.getElementById('msg').style.display = 'none';
+  document.getElementById('aviso-duplicado').style.display = 'none';
+
+  var params = {
+    nfdsRaw:      document.getElementById('nfds').value.trim(),
+    emailsExtras: document.getElementById('emailsExtras').value.trim(),
+    assunto:      document.getElementById('assunto').value.trim(),
+    obs:          document.getElementById('obs').value.trim()
+  };
+
+  google.script.run
+    .withSuccessHandler(function(resp) {
+      document.getElementById('spinner').style.display = 'none';
+      document.getElementById('btnEnviar').disabled = false;
+      document.getElementById('btn-confirmar-envio').disabled = false;
+      var r = JSON.parse(resp);
+      if (r.sucesso) {
+        mostrar('ok', r.sucesso);
+        document.getElementById('preview').style.display = 'none';
+        document.getElementById('btnEnviar').style.display = 'none';
+        document.getElementById('btn-confirmar-envio').style.display = 'none';
+        document.getElementById('nfds').value = '';
+        document.getElementById('assunto').value = '';
+        document.getElementById('obs').value = '';
+        document.getElementById('emailsExtras').value = '';
+        _jaEnviadas = [];
+      } else {
+        mostrar('erro', r.erro || 'Erro desconhecido.');
+        document.getElementById('btnEnviar').style.display = 'block';
+      }
+    })
+    .withFailureHandler(function(e) {
+      document.getElementById('spinner').style.display = 'none';
+      document.getElementById('btnEnviar').disabled = false;
+      document.getElementById('btn-confirmar-envio').disabled = false;
+      mostrar('erro', '❌ ' + e.message);
+    })
+    .enviarEmailDevolucao(params);
+}
+
+function mostrar(tipo, txt) {
+  var el = document.getElementById('msg');
+  el.className = 'msg-' + tipo;
+  el.textContent = txt;
+  el.style.display = 'block';
+}
+
+function esc(s) {
+  return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+document.getElementById('nfds').focus();
+</script>
+</body>
+</html>
