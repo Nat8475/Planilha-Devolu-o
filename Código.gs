@@ -1,5 +1,5 @@
 // ============================================================
-//   CONTROLE DE DEVOLUÇÕES v5.8 — OTIMIZAÇÃO COMPLETA
+//   CONTROLE DE DEVOLUÇÕES v6.0 — OTIMIZAÇÃO COMPLETA
 //
 //  v5.7 (onEdit / status / dashboard):
 //  [P01] syncCheckboxes: 3 setValue → 1 setValues batch (cols 12-14)
@@ -34,6 +34,11 @@
 //  [P28] navegarParaLinha: flush() desnecessário removido
 //  [P29] enviarResumoSemanal: 7 passes no array → 1 loop acumulador
 //  [P30] FormReabertura.html: itensEncontrados passados direto ao servidor
+//
+//  v6.0 (unificação de formulários + painel de auditoria):
+//  [P31] FormAuditoria.html: painel unificado (NF + e-mails + log)
+//  [P32] Menu atualizado com todas as entradas v6.0
+//  [P33] obterDiagnostico: retorna versão v6.0 corretamente
 // ============================================================
 
 
@@ -62,7 +67,7 @@ var _KEY_CORES            = 'cdv_cores';
 
 // ── Dashboard: sentinela e células de filtro ─────────────────
 var DASH_SENTINEL_CELL    = 'K1';
-var DASH_SENTINEL_VALUE   = 'v5.9';
+var DASH_SENTINEL_VALUE   = 'v6.0';
 var DASH_DATA_INI_CELL    = 'C4';
 var DASH_DATA_FIM_CELL    = 'C5';
 
@@ -556,11 +561,12 @@ function configurarPlanilha() {
 
   instalarTriggers();
   SpreadsheetApp.getUi().alert(
-    '✅ Sistema v5.7 configurado!\n\n' +
+    '✅ Sistema v6.0 configurado!\n\n' +
     '• Otimizações de performance aplicadas\n' +
-    '• onEdit ~60% mais rápido (batch writes + contadores)\n' +
+    '• onEdit mais rápido (batch writes + contadores)\n' +
     '• Dashboard com debounce (evita releituras desnecessárias)\n' +
-    '• onOpen com cache de cores (reabertura mais rápida)'
+    '• onOpen com cache de cores (reabertura mais rápida)\n' +
+    '• Painel de Auditoria unificado (NF + E-mails + Log)'
   );
 }
 
