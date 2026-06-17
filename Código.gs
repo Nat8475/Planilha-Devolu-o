@@ -39,6 +39,7 @@
 //  [P31] FormAuditoria.html: painel unificado (NF + e-mails + log)
 //  [P32] Menu atualizado com todas as entradas v6.0
 //  [P33] obterDiagnostico: retorna versão v6.0 corretamente
+//  [P34] executarExportarPDF: saveAndClose() restaurado (fix PDF em branco)
 // ============================================================
 
 
@@ -1460,10 +1461,11 @@ function executarExportarPDF(txtNfsRaw) {
     var tempFile = DriveApp.getFileById(ID_MODELO_DOC).makeCopy('Temp_PDF_Dev');
     var doc      = DocumentApp.openById(tempFile.getId());
     var body     = doc.getBody();
-    body.replaceText('\\{\\{\\s*nf\\s*\\}\\}', listaNfs.join(' / '));
-    body.replaceText('\\{\\{data\\}\\}', dataExp);
-    body.replaceText('\\{\\{forn\\}\\}', forns[0]);
-    // [P17] saveAndClose() removido — getAs(PDF) já força o flush internamente
+    body.replaceText('\\{\\{\\s*nf\\s*\\}\\}',   listaNfs.join(' / '));
+    body.replaceText('\\{\\{\\s*data\\s*\\}\\}',  dataExp);
+    body.replaceText('\\{\\{\\s*forn\\s*\\}\\}',  forns[0]);
+    // saveAndClose() é obrigatório — grava as substituições no Drive antes do getAs(PDF)
+    doc.saveAndClose();
 
     var nomePdf = 'Devolucao_' + listaNfs.slice(0, 3).join('-') + (listaNfs.length > 3 ? '_etc' : '') + '.pdf';
     var pdf     = DriveApp.getFolderById(ID_PASTA_DESTINO)
